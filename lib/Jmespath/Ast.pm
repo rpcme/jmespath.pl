@@ -64,9 +64,9 @@ sub literal {
   return { type => 'literal', value => $literal_value, children => [] };
 }
 
-sub multi_select_dict {
+sub multi_select_hash {
   my ($class, $nodes) = @_;
-  return {type => 'multi_select_dict', children => $nodes };
+  return {type => 'multi_select_hash', children => $nodes };
 }
 
 sub multi_select_list {
@@ -110,7 +110,7 @@ sub slice {
 }
 
 sub value_projection {
-  my ($class, $left, $right);
+  my ($class, $left, $right) = @_;
   return { type => 'value_projection', children => [$left, $right] };
 }
 

@@ -46,7 +46,6 @@ if ($ast) {
 
 $data = slurp ( $file );
 $data =~ s/(?<!\r)\n/\r\n/g;
-$data = decode_json($data);
 
 try {
   my $result = Jmespath->search($expression, $data);

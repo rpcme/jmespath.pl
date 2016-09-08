@@ -1,8 +1,11 @@
 #! /usr/bin/env perl
 use Test::More;
 use Jmespath::Functions;
+use Try::Tiny;
+use JSON qw(decode_json);
+use v5.12;
 
-
+my ($v);
 # jp_abs
 # def: number abs(number $value)
 #
@@ -10,21 +13,43 @@ use Jmespath::Functions;
 # indicates that a number is returned, and that the input argument
 # $value must resolve to a number, otherwise a invalid-type error is
 # triggered.
+
 is jp_abs(1), 1, 'jp_abs 1';
 is jp_abs(-1), 1, 'jp_abs 2';
-is_exception ( sub { jp_abs('s') },
-               undef, 'Jmespath::ValueException', 'jp_abs string');
+
+try {
+  is jp_abs('s'), undef;
+} catch {
+  isa_ok $_, 'Jmespath::ValueException', 'jp_abs string';
+};
 
 # jp_avg
 # def: number avg(array[number] $elements)
-is Jmespath::Functions::jp_avg('["10", "15", "20"]'), '15', 'jp_avg 1';
-is_exception ( sub { jp_avg('["10", false, "20"]') },
-               undef, 'Jmespath::ValueException', 'jp_avg false in mixed array');
-is_exception ( sub { jp_avg('[false]') },
-               undef, 'Jmespath::ValueException', 'jp_avg false in array');
-is_exception ( sub { jp_avg('false') },
-               undef, 'Jmespath::ValueException', 'jp_avg regular string');
 
+$v = decode_json('["10", "15", "20"]');
+is jp_avg($v), '15', 'jp_avg 1';
+
+$v = decode_json('["10", false, "20"]');
+is_exception ( sub { jp_avg($v) },
+               undef, 'Jmespath::ValueException', 'jp_avg false in mixed array');
+
+$v = decode_json('[false]');
+
+try {
+  is jp_avg($v), undef;
+  fail('jp_avg on boolean evaled ok');
+} catch {
+  isa_ok $_, 'Jmespath::ValueException';
+};
+
+$v = 'false';
+
+try {
+  is jp_avg($v), undef;
+  fail('jp_avg ran with bareword boolean');
+} catch {
+  isa_ok $_, 'Jmespath::ValueException';
+};
 
 # jp_contains
 # def: boolean contains(array|string $subject, any $search)
@@ -44,14 +69,28 @@ is jp_contains('foobar', 'not'), 'false',
   'jp_contains: not ! in foobar?';
 is jp_contains('foobar', 'bar'), 'true',
   'jp_contains: bar in foobar?';
-is_exception ( sub { jp_contains('false', 'bar') },
-               undef, 'Jmespath::ValueException', 'bool string in subject' );
+
+try {
+  is jp_contains('false', 'bar'), undef;
+  fail('jp_contains params cannot have bool value');
+} catch {
+  isa_ok $_, 'Jmespath::ValueException', 'bool string in subject';
+};
+
 is jp_contains('foobar', 123), 'false', 'jp_contains: 123 in foobar?';
-is jp_contains('["a", "b"]', 'a'), 'true', 'jp_contains: a in [a, b]?';
-is jp_contains('["a"]', 'a'), 'true', 'jp_contains: a in [a]?';
-is jp_contains('["a"]', 'b'), 'false', 'jp_contains: b ! in [a]?';
-is jp_contains('["foo", "bar"]', 'foo'), 'true', 'jp_contains: [foo,bar] <- foo?';
-is jp_contains(['foo', 'bar'], 'b'), 'false', 'jp_contains: b ! in [foo, bar]?';
+
+$v = decode_json('["a", "b"]');
+is jp_contains($v, 'a'), 'true', 'jp_contains: a in [a, b]?';
+
+$v = decode_json('["a"]');
+is jp_contains($v, 'a'), 'true', 'jp_contains: a in [a]?';
+
+$v = '["a"]';
+is jp_contains($v, 'b'), 'false', 'jp_contains: b ! in [a]?';
+
+$v = decode_json('["foo", "bar"]');
+is jp_contains($v, 'foo'), 'true', 'jp_contains: [foo,bar] <- foo?';
+is jp_contains($v, 'b'), 'false', 'jp_contains: b ! in [foo, bar]?';
 
 # jp_ceil
 # def: number ceil(number $value)
@@ -60,7 +99,7 @@ is jp_contains(['foo', 'bar'], 'b'), 'false', 'jp_contains: b ! in [foo, bar]?';
 is jp_ceil('1.001'), 2, 'jp_ceil: 1.001 -> 2';
 is jp_ceil('1.9'), 2, 'jp_ceil: 1.9 -> 2';
 is jp_ceil('1'), 1, 'jp_ceil: 1 -> 1';
-is jp_ceil(`abc`), 'null', 'jp_ceil: abc -> null';
+is jp_ceil('abc'), 'null', 'jp_ceil: abc -> null';
 
 # jp_ends_with
 # def: boolean ends_with(string $subject, string $prefix)
@@ -86,13 +125,24 @@ is jp_floor('2.1'), 2, 'jp_floor: 2.1 -> 2';
 # Returns all of the elements from the provided $stringsarray array
 # joined together using the $glue argument as a separator between
 # each.
-is jp_join(', ', '["a", "b"]'), '"a, b"',
+$v = decode_json('["a", "b"]');
+is jp_join(', ', $v), '"a, b"',
   'jp_join: \'["a", "b"]\' with ", " -> "a, b"';
-is jp_join('', '["a", "b"]'), '"ab"',
+
+is jp_join('', $v), '"ab"',
   'jp_join: \'["a", "b"]\' with "" -> "ab"';
-is_exception( sub { jp_join(', ', '["a", false, "b"]') },
-              undef, 'Jmespath::ValueException', 'jp_join: bool value in arr');
-is_exception( sub { jp_join(', ', '[false]') },
+
+$v = decode_json('["a", false, "b"]');
+
+try {
+  is jp_join(', ', $v), undef;
+  fail('jp_join: bool value in arr');
+} catch {
+  isa_ok $_, 'Jmespath::ValueException', 'jp_join: bool value in arr';
+};
+
+$v = decode_json('[false]');
+is_exception( sub { jp_join(', ', $v) },
               undef, 'Jmespath::ValueException', 'jp_join: bool value in arr');
 
 
@@ -104,13 +154,26 @@ is_exception( sub { jp_join(', ', '[false]') },
 # associated with the provided object obj are inheritently
 # unordered. Implementations are not required to return keys in any
 # specific order.
-is jp_keys('{"foo": "baz", "bar": "bam"}'),
-  '["foo", "bar"]', 'jp_keys: foo,bar are keys';
-is jp_keys('{}'), '[]', 'jp_keys: [] are keys of {}';
-is_exception( sub { jp_keys('false') }, undef,
-              'Jmespath::ValueException', 'jp_keys: boolean value');
+
+$v = decode_json('{"foo": "baz", "bar": "bam"}');
+is_deeply jp_keys($v), ['bar', 'foo'], 'jp_keys: foo,bar are keys';
+
+$v = decode_json('{}');
+is_deeply jp_keys($v), [], 'jp_keys: [] are keys of {}';
+
+try {
+  is jp_keys('false'), undef;
+  fail('jp_keys passed on boolean value');
+} catch {
+  isa_ok $_, 'Jmespath::ValueException';
+};
+
+try {
 is_exception( sub { jp_keys('[b,a,c]') }, undef,
               'Jmespath::ValueException', 'jp_keys: not object with keys');
+} catch {
+
+};
 
 # jp_length
 # def: number length(string|array|object $subject)
@@ -121,12 +184,25 @@ is_exception( sub { jp_keys('[b,a,c]') }, undef,
 # 3. object: returns the number of key-value pairs in the object
 is jp_length('"abc"'), 3, 'jp_length: abc len 3';
 is jp_length('"current"'), 7, 'jp_length: current len 7';
-is_exception( sub { jp_length('not_there') }, undef,
-              'Jmespath::ValueException', 'jp_length: not exist value (pathing)');
-is jp_length('["a", "b", "c"]'), 3, 'jp_length: valid array len 3';
-is jp_length('[]'), 0, 'jp_length: empty array len 0';
-is jp_length('{}'), 0, 'jp_length: empty object len 0 keys';
-is jp_length('{"foo": "bar", "baz": "bam"}'), 2, 'jp_length: obj with 2 keys';
+
+try {
+  is jp_length('not_there'), 0;
+  fail('did not catch unquoted string');
+} catch {
+  isa_ok $_, 'Jmespath::ValueException', 'jp_length: not exist value (pathing)';
+};
+
+$v = decode_json('["a", "b", "c"]');
+is jp_length($v), 3, 'jp_length: valid array len 3';
+
+$v = decode_json('[]');
+is jp_length($v), 0, 'jp_length: empty array len 0';
+
+$v = decode_json('{}');
+is jp_length($v), 0, 'jp_length: empty object len 0 keys';
+
+$v = decode_json('{"foo": "bar", "baz": "bam"}');
+is jp_length($v), 2, 'jp_length: obj with 2 keys';
 
 # jp_map
 # def: array[any] map(expression->any->any expr, array[any] elements)
@@ -138,8 +214,12 @@ is jp_length('{"foo": "bar", "baz": "bam"}'), 2, 'jp_length: obj with 2 keys';
 # Unlike a projection, ([*].bar), map() will include the result of
 # applying the expr for every element in the elements array, even if
 # the result if null.
+
+
+
 is jp_map('&foo', '[{"foo":"a"}, {"foo": "b"}, {},[], {"foo": "f"}]'),
   '["a", "b", null, null, "f"]', 'jp_map: obj to flat array by key';
+
 is jp_map('&[]', '[[1, 2, 3, [4]], [5, 6, 7, [8, 9]]]'),
   '[[1, 2, 3, 4], [5, 6, 7, 8, 9]]', 'jp_map: flatten array';
 
@@ -148,11 +228,20 @@ is jp_map('&[]', '[[1, 2, 3, [4]], [5, 6, 7, [8, 9]]]'),
 #
 # Returns the highest found number in the provided array argument. An
 # empty array will produce a return value of null.
-is jp_max('[10, 15]'), '15', 'jp_max: 15 max of [10,15]';
-is jp_max('["a", "b"]'), '"b"', 'jp_max: max of [a,b] is b';
-is_exception( sub { jp_max('["a", 2, "b"]') }, undef,
+
+$v = decode_json('[10, 15]');
+is jp_max($v), '15', 'jp_max: 15 max of [10,15]';
+
+$v = decode_json('["a", "b"]');
+my $res = JSON->new->allow_nonref->encode(jp_max($v)); # need to JSON-ize
+is $res, '"b"', 'jp_max: max of [a,b] is b';
+
+$v = decode_json('["a", 2, "b"]');
+is_exception( sub { jp_max($v) }, undef,
               'Jmespath::ValueException', 'jp_max: fail jp_max on char and int');
-is_exception( sub { jp_max('[10, false, 20]') }, undef,
+
+$v = decode_json('[10, false, 20]');
+is_exception( sub { jp_max($v) }, undef,
               'Jmespath::ValueException', 'jp_max: fail jp_max on bool and int');
 
 # jp_max_by
@@ -311,9 +400,10 @@ done_testing();
 
 sub is_exception {
   my ( $call, $result, $exception, $msg ) = @_;
-  eval {
+  try {
     is &$call, $result, $msg;
+  } catch {
+    isa_ok $_, $exception, 'Exception of ' . $msg;
   };
-  isa_ok $@, $exception, 'Exception of ' . $msg;
 }
 

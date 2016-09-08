@@ -2,6 +2,7 @@ package Jmespath::Parser;
 use strict;
 use warnings;
 
+use Jmespath;
 use Jmespath::Lexer;
 use Jmespath::Ast;
 use Jmespath::Visitor;
@@ -10,6 +11,7 @@ use Jmespath::ParsedResult;
 use Math::Random;
 use List::Util qw(any);
 use Try::Tiny;
+use Data::Dumper;
 no strict 'refs';
 
 $| = 1;
@@ -48,7 +50,7 @@ my $BINDING_POWER = { 'eof' => 0,
 # a projection.
 my $PROJECTION_STOP = 10;
 # The _MAX_SIZE most recent expressions are cached in
-# _CACHE dict.
+# _CACHE hash.
 my $CACHE = {};
 my $MAX_SIZE = 128;
 
@@ -60,7 +62,7 @@ sub new {
   $self->{ tokens } = [ undef ] * $lookahead;
   $self->{ buffer_size } = $lookahead;
   $self->{ index } = 0;
-  print "out Parser constructor\n" if $JmesPath::VERBOSE;
+  trace("out Parser constructor");
   return $self;
 }
 
@@ -70,9 +72,10 @@ sub parse {
 
   my $cached = $self->{_CACHE}->{$expression};
   return $cached if defined $cached;
-  print __PACKAGE__ . ' ' . __LINE__ . " _do_parse before call\n"
-    if $Jmespath::VERBOSE == 1;
+  trace('_do_parse before call');
+
   my $parsed_result = $self->_do_parse($expression);
+
   $self->{_CACHE}->{expression} = $parsed_result;
   if (scalar keys %{$self->{_CACHE}} > $MAX_SIZE) {
     $self->_free_cache_entries;
@@ -82,8 +85,7 @@ sub parse {
 
 sub _do_parse {
   my ( $self, $expression ) = @_;
-  print __PACKAGE__ . ' ' . __LINE__ . " _do_parse start $expression\n"
-    if $Jmespath::VERBOSE;
+  trace('_do_parse start $expression');
 
   try {
     return $self->_parse($expression);
@@ -113,10 +115,9 @@ sub _parse {
   $self->{_index}    = 0;
   $self->{_tokens}   = Jmespath::Lexer->new->tokenize($expression);
   trace('_parse: tokenization complete');
-
+  tracedump($self->{_tokens});
   my $parsed = $self->_expression(0); #binding_power = 0
   trace('_parse: expression analysis complete');
-
   if ($self->_current_token_type ne 'eof') {
     my $t = $self->_lookahead_token(0);
     return Jmespath::ParseException->new(lex_position => $t->{start},
@@ -136,7 +137,7 @@ sub _expression {
 
   # Get the current token under evaluation
   my $left_token = $self->_lookahead_token(0);
-
+  trace("_expression: left_token: $left_token");
   # Advance the token index
   $self->_advance;
 
@@ -153,6 +154,7 @@ sub _expression {
     trace("_expression: current_token: $current_token");
 
     my $led = '_token_led_' . $current_token;
+    trace("_expression: led: $led");
 #    my $res = &$led($self, $left);
 
     $self->_error_led_token($self->_lookahead_token(0))
@@ -163,9 +165,12 @@ sub _expression {
     $left_ast = &$led($self, $left_ast);
     trace("_expression: left now " . $left_ast->{type});
     $current_token = $self->_current_token_type;
+    trace("_expression: _current_token_type : $current_token");
+    trace("_expression: current binding power: $binding_power, next: " . $BINDING_POWER->{$current_token});
   }
 
-  trace(" _expression: return: $left_ast\n");
+  trace(" _expression: return:\n");
+  tracedump( $left_ast );
   return $left_ast;
 }
 
@@ -281,7 +286,7 @@ sub _parse_slice_expression {
   # [start:end:step]
   # Where start, end, and step are optional.
   # The last colon is optional as well.
-  my $parts = [undef, undef, undef];
+  my @parts = (undef, undef, undef);
   my $index = 0;
   my $current_token = $self->_current_token_type;
   while ($current_token ne 'rbracket' and $index < 3) {
@@ -294,7 +299,7 @@ sub _parse_slice_expression {
       $self->_advance;
     }
     elsif ($current_token eq 'number') {
-      @{$parts}[$index] = $self->_lookahead_token(0)->{value};
+      $parts[$index] = $self->_lookahead_token(0)->{value};
       $self->_advance;
     }
     else {
@@ -302,8 +307,10 @@ sub _parse_slice_expression {
                                            'syntax error');
       $current_token = $self->_current_token_type;
     }
+    $current_token = $self->_current_token_type;
   }
-  return Jmespath::Ast->slice($parts);
+  $self->_match('rbracket');
+  return Jmespath::Ast->slice(@parts);
 }
 
 sub _token_nud_current {
@@ -320,6 +327,8 @@ sub _token_nud_expref {
 sub _token_led_dot {
   my ($self, $left) = @_;
   trace("_token_led_dot: start");
+  trace("_token_led_dot: _current_token_type: " . $self->_current_token_type );
+#  tracedump($left);
   if ($self->_current_token_type ne 'star') {
     trace("_token_led_dot: ne star");
 
@@ -339,19 +348,20 @@ sub _token_led_dot {
   }
   $self->_advance;
   my $right = $self->_parse_projection_rhs( $BINDING_POWER->{ dot } );
+#  tracedump($right);
   return Jmespath::Ast->value_projection($left, $right);
 }
 
 sub _token_led_pipe {
   my ($self, $left) = @_;
   my $right = $self->_expression( $BINDING_POWER->{ pipe } );
-  return Jmespath::Ast->and_expression($left, $right);
+  return Jmespath::Ast->pipe($left, $right);
 }
 
 sub _token_led_or {
   my ($self, $left) = @_;
   my $right = $self->_expression( $BINDING_POWER->{ or } );
-  return Jmespath::Ast->and_expression($left, $right);
+  return Jmespath::Ast->or_expression($left, $right);
 }
 
 sub _token_led_and {
@@ -477,7 +487,8 @@ sub _parse_multi_select_list {
   my ($self) = @_;
   my $expressions = [];
   while (1) {
-    my $expressions = $self->_expression();
+    my $expression = $self->_expression;
+    push @$expressions, $expression;
     last if ($self->_current_token_type eq 'rbracket');
     $self->_match('comma');
   }
@@ -488,7 +499,7 @@ sub _parse_multi_select_list {
 
 sub _parse_multi_select_hash {
   my ($self) = @_;
-  my @pairs = ();
+  my @pairs;
   while (1) {
     my $key_token = $self->_lookahead_token(0);
     # Before getting the token value, verify it's
@@ -497,32 +508,38 @@ sub _parse_multi_select_hash {
     my $key_name = $key_token->{ value };
     $self->_match('colon');
     my $value = $self->_expression(0);
-    my $node = Jmespath::Ast->key_val_pair( key_name => $key_name,
-                                            node     => $value );
+    my $node = Jmespath::Ast->key_val_pair( $key_name,
+                                            $value );
+#    tracedump($node);
     push @pairs, $node;
     if ( $self->_current_token_type eq 'comma' ) {
-      $self->match('comma');
+      $self->_match('comma');
     }
     elsif ( $self->_current_token_type eq 'rbrace' ) {
-      $self->match('rbrace');
+      $self->_match('rbrace');
       last;
     }
   }
-  return Jmespath::Ast->multi_select_dict(nodes => \@pairs);
+  return Jmespath::Ast->multi_select_hash(\@pairs);
 }
 
 sub _parse_projection_rhs {
   my ($self, $binding_power) = @_;
+  trace('_parse_projection_rhs: start');
   if ( $BINDING_POWER->{ $self->_current_token_type } < $PROJECTION_STOP) {
+    trace("_parse_projection_rhs: returning Ast->identity");
     return Jmespath::Ast->identity();
   }
   elsif ($self->_current_token_type eq 'lbracket') {
+    trace("_parse_projection_rhs: lbracket");
     return $self->_expression( $binding_power );
   }
   elsif ($self->_current_token_type eq 'filter') {
+    trace("_parse_projection_rhs: filter");
     return $self->_expression( $binding_power );
   }
   elsif ($self->_current_token_type eq 'dot') {
+    trace("_parse_projection_rhs: dot");
     $self->_match('dot');
     return $self->_parse_dot_rhs($binding_power);
   }
@@ -553,10 +570,13 @@ sub _parse_dot_rhs {
     return $self->_expression( $binding_power );
   }
   elsif ( $lookahead eq 'lbracket' ) {
+    trace('_parse_dot_rhs: _match lbracket');
     $self->_match('lbracket');
+    return $self->_parse_multi_select_list;
   }
   elsif ( $lookahead eq 'lbrace' ) {
     $self->_match('lbrace');
+    return $self->_parse_multi_select_hash;
   }
   else {
     my $t = $self->_lookahead_token(0);
@@ -605,9 +625,9 @@ sub _match_multiple_tokens {
 
 sub _advance {
   my ($self) = @_;
-  trace("_advancing index " . $self->{_index});
+  trace("_advance from index " . $self->{_index});
   $self->{ _index } += 1;
-  trace("_advanced index  " . $self->{_index});
+  trace("_advance to   index " . $self->{_index});
 }
 
 sub _current_token_type {
@@ -621,7 +641,7 @@ sub _current_token_type {
 sub _lookahead {
   my ($self, $number) = @_;
   $number = defined $number ? $number : 1;
-  return @{ $self->{ _tokens } }[ $self->{_index} + 1 ]->{type};
+  return @{ $self->{ _tokens } }[ $self->{_index} + $number ]->{type};
 }
 
 sub _lookahead_token {
@@ -637,6 +657,7 @@ sub _lookahead_token {
 
 sub _raise_parse_error_for_token {
   my ($self, $token, $reason) = @_;
+  trace('_raise_parse_error_for_token: ' . $token);
   my $lex_position = $token->{ start };
   my $actual_value = $token->{ value };
   my $actual_type = $token->{ type };
@@ -648,6 +669,7 @@ sub _raise_parse_error_for_token {
 
 sub _raise_parse_error_maybe_eof {
   my ($self, $expected_type, $token) = @_;
+  trace('_raise_parse_error_maybe_eof: ' . $token);
   my $lex_position = $token->{ start };
   my $actual_value = $token->{ value };
   my $actual_type  = $token->{ type };
@@ -680,8 +702,13 @@ sub purge {
 sub trace {
   my $message = shift;
   my ($package, $filename, $line) = caller;
-  
+
   print $package . ' ' . $line . ' ' . $message . "\n" if $Jmespath::VERBOSE == 1;
+}
+
+sub tracedump {
+  return if $Jmespath::VERBOSE != 1;
+  print Dumper shift;
 }
 
 1;

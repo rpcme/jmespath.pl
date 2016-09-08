@@ -1,11 +1,12 @@
 package Jmespath;
-require Exporter;
+#require Exporter;
 use Jmespath::Parser;
 use Jmespath::Visitor;
+use JSON qw(encode_json decode_json);
 use Try::Tiny;
 
 our $VERSION = '0.01';
-our $EXPORT = qw(compile search );
+#our $EXPORT = qw(compile search);
 our $VERBOSE = 0;
 
 sub compile {
@@ -21,8 +22,26 @@ sub compile {
 
 sub search {
   my ( $class, $expression, $data, $options ) = @_;
-  return Jmespath::Parser->new->parse( $expression )
-                              ->search( $data, $options );
+  my $result = Jmespath::Parser->new->parse( $expression )
+    ->search( JSON->new->allow_nonref->decode( $data ), $options );
+
+  # JSON block result
+  if ( ref $result eq 'HASH' or
+       ref $result eq 'ARRAY' ) {
+    return JSON->new->allow_nonref->encode( $result ); }
+
+  # Numeric result
+  if ( $result =~ /[0-9]+/ ) {
+    return $result;
+  }
+  
+  # Unquoted string result
+  if ( defined $ENV{JP_UNQUOTED} and $ENV{JP_UNQUOTED} ne '0' ) {
+    return $result;
+  }
+
+  # Quoted string result
+  return q{"} . $result . q{"};
 }
 
 1;
