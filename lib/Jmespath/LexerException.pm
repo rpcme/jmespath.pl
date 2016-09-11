@@ -10,7 +10,7 @@ has expression => ( is => 'rw' );
 
 sub to_string {
   my ( $self ) = @_;
-  my $underline = ' ' * ( $self->{ lex_position } + 1 ) + '^';
+  my $underline = ( ' ' x ( $self->{ lexer_position } + 1 ) ) . '^';
   return 'Bad jmespath expression: ' . $self->{message} . "\n" . $self->{ expression } . "\n" . $underline;
 }
 

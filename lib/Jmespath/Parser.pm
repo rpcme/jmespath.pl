@@ -7,6 +7,7 @@ use Jmespath::Lexer;
 use Jmespath::Ast;
 use Jmespath::Visitor;
 use Jmespath::ParsedResult;
+use Jmespath::IncompleteExpressionException;
 
 use Math::Random;
 use List::Util qw(any);
@@ -94,15 +95,15 @@ sub _do_parse {
     print $@ if $@;
     # the raised exception should be $@
     if ($_->isa('Jmespath::LexerException')) {
-      $_->expression($expression);
+      $_->expression($self->{_expression});
       $_->throw;
     }
     elsif ($_->isa('Jmespath::IncompleteExpressionException')) {
-      $_->set_expression($expression);
+      $_->expression($self->{_expression});
       $_->throw;
     }
     elsif ($_->isa('Jmespath::ParseException')) {
-      $_->expression($expression);
+      $_->expression($self->{_expression});
       $_->throw;
     }
   };
@@ -111,9 +112,9 @@ sub _do_parse {
 sub _parse {
   my ( $self, $expression ) = @_;
   trace('_parse: start');
-
-  $self->{_index}    = 0;
-  $self->{_tokens}   = Jmespath::Lexer->new->tokenize($expression);
+  $self->{_expression} = $expression;
+  $self->{_index}      = 0;
+  $self->{_tokens}     = Jmespath::Lexer->new->tokenize($expression);
   trace('_parse: tokenization complete');
   tracedump($self->{_tokens});
   my $parsed = $self->_expression(0); #binding_power = 0
@@ -123,7 +124,7 @@ sub _parse {
     return Jmespath::ParseException->new(lex_position => $t->{start},
                                          token_value => $t->{value},
                                          token_type => $t->{type},
-                                         message => "Unexpected token: " . $t->{value})->throw();
+                                         message => "Unexpected token: " . $t->{value})->throw;
   }
 
   return Jmespath::ParsedResult->new($expression, $parsed);
@@ -142,6 +143,7 @@ sub _expression {
   $self->_advance;
 
   my $nud_function = '_token_nud_' . $left_token->{type};
+  if ( not exists &$nud_function ) { $self->_error_nud_token; }
   trace("_expression: nud_function: $nud_function");
   my $left_ast = &$nud_function($self, $left_token);
 
@@ -544,7 +546,7 @@ sub _parse_projection_rhs {
     return $self->_parse_dot_rhs($binding_power);
   }
 
-  return $self->_raise_parse-error_for_token($self->_lookahead_token(0),
+  return $self->_raise_parse_error_for_token($self->_lookahead_token(0),
                                              'syntax error');
 }
 
@@ -661,10 +663,11 @@ sub _raise_parse_error_for_token {
   my $lex_position = $token->{ start };
   my $actual_value = $token->{ value };
   my $actual_type = $token->{ type };
-  return Jmespath::ParseException->new( lex_position => $lex_position,
-                                        token_value => $actual_value,
-                                        token_type => $actual_type,
-                                        message => $reason )->throw;
+
+  Jmespath::ParseException->new( lex_position => $lex_position,
+                                 token_value => $actual_value,
+                                 token_type => $actual_type,
+                                 message => $reason )->throw;
 }
 
 sub _raise_parse_error_maybe_eof {
@@ -675,17 +678,17 @@ sub _raise_parse_error_maybe_eof {
   my $actual_type  = $token->{ type };
 
   if ( $actual_type eq 'eof' ) {
-    return Jmespath::IncompleteExpressionException->new($lex_position,
-                                                        $actual_value,
-                                                        $actual_type)->throw;
+    Jmespath::IncompleteExpressionException->new( lex_position => $lex_position,
+                                                  token_value => $actual_value,
+                                                  token_type => $actual_type )->throw;
   }
 
   my $message = "Expecting: $expected_type, got: $actual_type";
 
-  return Jmespath::ParseException->new( lex_position => $lex_position,
-                                        token_value => $actual_value,
-                                        token_type => $actual_type,
-                                        message => $message )->throw;
+  Jmespath::ParseException->new( lex_position => $lex_position,
+                                 token_value => $actual_value,
+                                 token_type => $actual_type,
+                                 message => $message )->throw;
 }
 
 sub _free_cache_entries {

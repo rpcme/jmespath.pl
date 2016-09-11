@@ -9,6 +9,8 @@ use Jmespath::Expression;
 use Jmespath::Functions;
 use Jmespath::AttributeException;
 use Jmespath::IndexException;
+use Jmespath::UnknownFunctionException;
+
 
 my $COMPARATOR_FUNC = { 'le' => 'le',
                         'ne' => 'ne',
@@ -37,8 +39,12 @@ sub visit {
   my ($self, $node, $args) = @_;
   use Data::Dumper;
   my $node_type = $node->{type};
-  my $method = 'visit_' . $node->{type};
-  return &$method( $self, $node, $args );
+  try {
+    my $method = 'visit_' . $node->{type};
+    return &$method( $self, $node, $args );
+  } catch {
+    $_->throw;
+  }
 }
 
 sub default_visit {
@@ -66,7 +72,14 @@ sub visit_field {
 
 sub visit_comparator {
   my ($self, $node, $value) = @_;
+
   my $comparator_func = 'jp_' . $node->{value};
+  if ( not defined &$comparator_func ) {
+    Jmespath::UnknownFunctionException
+        ->new({ message => 'unknown-function: Unknown function: ' . $comparator_func })
+        ->throw;
+  }
+
   return &$comparator_func( $self->visit( @{$node->{children}}[0], $value ),
                             $self->visit( @{$node->{children}}[1], $value ) );
 }
@@ -83,12 +96,19 @@ sub visit_expref {
 
 sub visit_function_expression {
   my ($self, $node, $value) = @_;
+  my $function = 'jp_' . $node->{value};
+  if ( not exists &$function ) {
+    Jmespath::UnknownFunctionException
+        ->new({ message => 'unknown-function: Unknown function: ' . $function })
+        ->throw;
+  }
+
   my $resolved_args = [];
   foreach my $child ( @{$node->{ children}} ) {
     my $current = $self->visit($child, $value);
     push  @{$resolved_args}, $current;
   }
-  my $function = 'jp_' . $node->{value};
+
   return &$function(@$resolved_args);
 }
 
@@ -96,7 +116,9 @@ sub visit_filter_projection {
   my ($self, $node, $value) = @_;
   my $base = $self->visit( @{$node->{children}}[0], $value);
   return undef if ref($base) ne 'ARRAY';
+  return 'null' if scalar @$base == 0;
   my $comparator_node = @{ $node->{children} }[2];
+
   my $collected = [];
   foreach my $element (@$base) {
     if ( $self->_is_true($self->visit($comparator_node, $element))) {
@@ -130,7 +152,7 @@ sub visit_identity {
   my ($self, $node, $value) = @_;
   # SHEER NEGATIVE ENERGY HACKERY - FORCE NUMBERS TO BE NUMBERS
   # THANK YOU JSON.PM
-  $value = 1 * $value if $value =~ /^[0-9]+/;
+  $value = 1 * $value if $value =~ /^[0-9]+$/;
   return $value;
 }
 
@@ -140,7 +162,7 @@ sub visit_index {
   try {
     return $value->[ $node->{value} ];
   } catch {
-    Jmespath::IndexException->throw({ message => 'Invalid index' });
+    Jmespath::IndexException->new({ message => 'Invalid index' })->throw;
   };
 }
 
@@ -191,7 +213,10 @@ sub visit_multi_select_hash {
   # to choose the data structure method
   my %merged;
   foreach my $child (@{$node->{children}}) {
-    %merged = (%merged,(  $child->{value} , $self->visit($child, $value) ));
+    my $result = $self->visit($child, $value);
+    return undef if not defined $child->{value};
+    return undef if not defined $result;
+    %merged = (%merged,(  $child->{value} , $result ));
   }
   return \%merged;
 }
@@ -199,8 +224,11 @@ sub visit_multi_select_hash {
 sub visit_multi_select_list {
   my ($self, $node, $value) = @_;
   return undef if not defined $value;
+  return 'null' if scalar @{$node->{children}} == 0;
   my $collected = [];
   foreach my $child ( @{$node->{children}}) {
+    my $result = $self->visit($child, $value);
+    next if not defined $result;
     push @$collected, $self->visit($child, $value);
   }
   return $collected;
@@ -208,9 +236,9 @@ sub visit_multi_select_list {
 
 sub visit_or_expression {
   my ($self, $node, $value) = @_;
-  
-  my $matched = $self->visit( @{$node->{children}}[1], $value );
-  if ($self->_is_false($matched) ) {
+
+  my $matched = $self->visit( @{$node->{children}}[0], $value );
+  if ( $self->_is_false($matched) == 1 ) {
     $matched = $self->visit(@{$node->{children}}[1], $value);
   }
   return $matched;
@@ -219,16 +247,20 @@ sub visit_or_expression {
 sub visit_and_expression {
   my ($self, $node, $value) = @_;
   my $matched = $self->visit(@{$node->{children}}[0], $value);
-  return $matched if $self->_is_false($matched);
+  return $matched if $self->_is_false($matched) == 1;
   return $self->visit(@{$node->{children}}[1], $value);
 }
 
 sub visit_not_expression {
   my ($self, $node, $value) = @_;
   my $original_result = $self->visit(@{$node->{children}}[0], $value);
-  return 0 if $original_result == 0;
-  # XXX cross check if this actually negates the value
-  return not $original_result;
+  return 'null' if not defined $self->_is_true($original_result);
+
+  my $result = $self->_is_true($original_result);
+  $result = $result == 0 ? 1 : 0;
+
+  return 'true' if $result == 1;
+  return 'false';
 }
 
 sub visit_pipe {
@@ -244,6 +276,8 @@ sub visit_projection {
   my ($self, $node, $value) = @_;
   my $base = $self->visit(@{$node->{children}}[0], $value);
   return undef if ref($base) ne 'ARRAY';
+  return 'null' if scalar @$base == 0;
+  
   my $collected = [];
   foreach my $element (@$base) {
     my $current = $self->visit(@{$node->{children}}[1], $element);
@@ -259,9 +293,10 @@ sub visit_value_projection {
   try {
     @basekeys = map { $_ => $base->{ $_ } } sort keys %$base ;
   } catch {
-    return Jmespath::AttributeError->new;
+    Jmespath::AttributeException->new->throw;
   };
 
+  return 'null' if scalar @basekeys == 0;
   my $collected = [];
   foreach my $element (@basekeys) {
     my $current = $self->visit(@{$node->{children}}[1], $element);
@@ -272,17 +307,19 @@ sub visit_value_projection {
 
 sub _is_false {
   my ($self, $value) = @_;
+
   return 1 if not defined $value;
-  return 1 if not $value;
-#  return 0 if ( ref($value) == 'SCALAR' && ( not $value );
-#  return 0 if ( ref($value) == 'ARRAY' && scalar @$value == 0 );
-#  return 0 if ( ref($value) == 'HASH'  && scalar keys %$value == 0 );
-  
-#  my $falsehood = $value eq '' || $value eq '0' || $value == 0 || 
+  return 1 if $value eq 'false';
+  return 1 if $value eq '';
+  return 1 if ( ref($value) eq 'SCALAR' and not $value );
+  return 1 if ( ref($value) eq 'SCALAR' and $value eq '' );
+  return 1 if ( ref($value) eq 'ARRAY'  and scalar @$value == 0 );
+  return 1 if ( ref($value) eq 'HASH'   and scalar keys %$value == 0 );
   return 0;
 }
 
-sub _is_true { return not shift->_is_false(shift); }
-
+sub _is_true {
+  return ! shift->_is_false(shift);
+}
 
 1;

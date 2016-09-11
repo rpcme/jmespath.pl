@@ -1,20 +1,19 @@
-package Jmespath::Exceptions::IncompleteExpressionError;
+package Jmespath::IncompleteExpressionException;
 
-sub new {
-  my ($class, $expression) = @_;
-  my $self = bless {}, $class;
-  $self->{ expression } = $expression;
-  $self->{ lex_position } = length $expression;
-  $self->{ token_type } = undef;
-  $self->{ token_value } = undef;
-  return $self;
-}
+use Moose;
+extends 'Jmespath::ParseException';
+with 'Throwable';
 
-sub to_string {
+has expression => ( is => 'rw' );
+has lex_position => ( is => 'ro' );
+has token_type => ( is => 'ro' );
+has token_value => ( is => 'ro' );
+
+override 'to_string', sub {
   my ( $self ) = @_;
-  my $underline = ' ' * ( $self->{ lex_position } + 1 ) + '^';
+  my $underline = ( ' ' x ( $self->{ lex_position } + 1 )) . '^';
   return "Invalid jmespath expression: Incomplete expression:\n" .
     '"' . $self->{expression} . '"' . "\n" . $underline;
-}
+};
 
-1;
+no Moose;

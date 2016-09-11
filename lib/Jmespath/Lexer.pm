@@ -7,6 +7,8 @@ use JSON;
 use String::Util qw(trim);
 use List::Util qw(any);
 use Try::Tiny;
+use utf8;
+use feature 'unicode_strings';
 
 our $START_IDENTIFIER = ['A'..'Z','a'..'z','_'];
 our $VALID_IDENTIFIER = ['A'..'Z','a'..'z',0..9,'_'];
@@ -241,10 +243,11 @@ sub _consume_until {
       $self->_next;
     }
     if (not defined $self->{_current}) {
-      Jmespath::LexerException( lexer_position => $start,
-                                lexer_value => $self->{_expression},
-                                message => "Unclosed $delimiter delimiter" )
-        ->throw;
+      Jmespath::LexerException
+          ->new( lexer_position => $start,
+                 lexer_value => $self->{_expression},
+                 message => "Unclosed $delimiter delimiter" )
+          ->throw;
     }
     $buff .= $self->{_current};
     $self->_next;
@@ -282,19 +285,26 @@ sub _consume_quoted_identifier {
   my ( $self ) = @_;
   my $start = $self->{_position};
   my $lexeme = '"' . $self->_consume_until('"') . '"';
+  my $error = "error consuming quoted identifier";
 
-  if ( ( $self->{_position} - $start ) < 0 ) {
+  try {
+    my $decoded_lexeme = JSON->new->allow_nonref->decode($lexeme);
+    my $token_len = $self->{ _position } - $start;
+    return { type => 'quoted_identifier',
+             value => $decoded_lexeme,
+             start => $start,
+             end   => $token_len,
+           };
+  } catch {
+    Jmespath::LexerException->new( lexer_position => $start,
+                                   expression => $lexeme,
+                                   message => $error )->throw;
+  };
+
+#  if ( ( $self->{_position} - $start ) < 0 ) {
     # TODO: what is this error really?  What does ValueError really give?
-    my $error = "error consuming quoted identifier";
-    Jmespath::Exceptions::LexerException->new( $start, $lexeme, $error )->throw;
-  }
+#  }
 
-  my $token_len = $self->{ _position } - $start;
-  return { type => 'quoted_identifier',
-           value => JSON->new->allow_nonref->decode($lexeme),
-           start => $start,
-           end   => $token_len,
-         };
 }
 
 sub _consume_raw_string_literal {

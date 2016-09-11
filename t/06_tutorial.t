@@ -225,4 +225,21 @@ TEXT
 # $r = Jmespath->search('max_by(people, &age).name', $text);
 # is $r, '"a"';
 
+$text = <<TEXT;
+{
+  "myarray": [
+    "foo",
+    "foobar",
+    "barfoo",
+    "bar",
+    "baz",
+    "barbaz",
+    "barfoobaz"
+  ]
+}
+TEXT
+
+$r = Jmespath->search("myarray[?contains(@, 'foo') == `true`]", $text);
+is $r, '["foo","foobar","barfoo","barfoobaz"]', 'T21';
+
 done_testing();

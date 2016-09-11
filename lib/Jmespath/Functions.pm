@@ -6,6 +6,7 @@ use JSON;
 use Try::Tiny;
 use POSIX qw(ceil floor);
 use Jmespath::ValueException;
+use Scalar::Util qw(looks_like_number);
 use v5.12;
 
 our @EXPORT = qw( jp_abs
@@ -16,15 +17,19 @@ our @EXPORT = qw( jp_abs
                   jp_eq
                   jp_floor
                   jp_gt
+                  jp_gte
                   jp_join
                   jp_keys
                   jp_length
+                  jp_lt
+                  jp_lte
                   jp_map
                   jp_max
                   jp_max_by
                   jp_merge
                   jp_min
                   jp_min_by
+                  jp_ne
                   jp_not_null
                   jp_reverse
                   jp_sort
@@ -43,18 +48,28 @@ our @EXPORT = qw( jp_abs
 # a signed integer.
 sub jp_abs {
   my ( $arg ) = @_;
-  Jmespath::ValueException->throw({ message => 'Not a number: ' . $arg })
-      if $arg !~ /[0-9]/g;
+ Jmespath::ValueException
+      ->new({ message => 'abs() requires one argument' })
+      ->throw
+      if not defined $arg;
+  Jmespath::ValueException
+      ->new({ message => 'abs() requires one argument' })
+      ->throw
+      if scalar @_ > 1;
+  Jmespath::ValueException
+      ->new({ message => 'Not a number: [' . $arg  . ']'})
+      ->throw
+      if $arg !~ /^[-]{0,1}[0-9]+$/;
   return abs( $arg );
 }
 
 sub jp_avg {
   my ($values) = @_;
-  Jmespath::ValueException->throw({ message => 'Required argument not array ref' })
+  Jmespath::ValueException->new({ message => 'Required argument not array ref' })->throw
       if ref $values ne 'ARRAY';
   
   foreach (@$values) {
-    Jmespath::ValueException->throw({ message => 'Not a number: ' . $_ })
+    Jmespath::ValueException->new({ message => 'Not a number: ' . $_ })->throw
         if $_ !~ /[0-9]/g;
   }
   return jp_sum($values) / scalar(@$values);
@@ -63,7 +78,9 @@ sub jp_avg {
 
 sub jp_contains {
   my ( $subject, $search ) = @_;
-  Jmespath::ValueException->throw({ message => 'contains() cannot be passed booleans' })
+  Jmespath::ValueException
+      ->new({ message => 'contains() cannot be passed booleans' })
+      ->throw
       if $subject eq 'true' or $subject eq 'false';
   if ( ref $subject eq 'ARRAY' ) {
     foreach (@$subject) {
@@ -80,45 +97,87 @@ sub jp_contains {
 
 sub jp_ceil {
   my ($value) = @_;
-  Jmespath::ValueException->throw({ message => 'ceil() requires one argument' })
-      if not defined $value;
-  return 'null' if $value !~ /[0-9]/g;
+  Jmespath::ValueException
+      ->new({ message => 'ceil() requires one argument' })
+      ->throw
+      if scalar @_ > 1;
+  Jmespath::ValueException
+      ->new({ message => 'ceil() requires one number' })
+      ->throw
+      if not looks_like_number($value);
   return ceil($value);
 }
 
 sub jp_ends_with {
   my ( $subject, $prefix ) = @_;
+  Jmespath::ValueException
+      ->new({ message => 'ends_with() allows strings only' })
+      ->throw
+      if looks_like_number($prefix);
   return 'true' if $subject =~ /$prefix$/;
   return 'false';
 }
 
 sub jp_eq {
   my ($left, $right) = @_;
-  return 1 if $left eq $right;
-  return 0;
+  if ( looks_like_number($left) and looks_like_number($right) and $left eq $right) {
+    return 'true';
+  }
+  return 'true' if $left eq $right;
+  return 'false';
 }
 
 sub jp_floor {
   my ($value) = @_;
-  return 'null' if $value !~ /[0-9]/g;
+  Jmespath::ValueException
+      ->new({ message => 'floor() requires one argument' })
+      ->throw
+      if scalar @_ > 1;
+  Jmespath::ValueException
+      ->new({ message => 'floor() requires one number' })
+      ->throw
+      if not looks_like_number($value);
   return floor($value);
 }
 
 
 sub jp_gt {
   my ($left, $right) = @_;
-  return 1 if ($left > $right);
-  return 0;
+  return 'true' if $left > $right;
+  return 'false';
+}
+
+sub jp_gte {
+  my ($left, $right) = @_;
+  return 'true' if $left >= $right;
+  return 'false';
+}
+
+sub jp_lt {
+  my ($left, $right) = @_;
+  return 'null' if (! looks_like_number($left) || ! looks_like_number($right) );
+  return 'true' if $left < $right;
+  return 'false';
+}
+
+sub jp_lte {
+  my ($left, $right) = @_;
+  return 'true' if $left <= $right;
+  return 'false';
 }
 
 sub jp_join {
   my ( $glue, $array ) = @_;
-  Jmespath::ValueException->throw({ message => 'Not an array: ' . $array })
+  Jmespath::ValueException
+      ->new({ message => 'Not an array: ' . $array })
+      ->throw
       if ref $array ne 'ARRAY';
 
   foreach (@$array) {
-    Jmespath::ValueException->throw({message =>'Cannot join boolean'})
-      if ref $_ eq 'JSON::PP::Boolean';
+    Jmespath::ValueException
+        ->new({message =>'Cannot join boolean'})
+        ->throw
+        if ref $_ eq 'JSON::PP::Boolean';
   }
   return '"' . join ( $glue, @$array ) . '"';
 }
@@ -126,7 +185,9 @@ sub jp_join {
 
 sub jp_keys {
   my ( $obj ) = @_;
-  Jmespath::ValueException->throw({ message => 'keys() takes single JSON object as arg' })
+  Jmespath::ValueException
+      ->new({ message => 'keys() takes single JSON object as arg' })
+      ->throw
       if ref $obj ne 'HASH';
   my @objkeys = sort keys %$obj;
   return \@objkeys;
@@ -137,10 +198,10 @@ sub jp_length {
   my ( $length ) = 0;
 
   if ( ref $subject eq '' ) {    # simple scalar
-    if ( substr($subject, 0, 1) ne qq/"/ or substr($subject, -1, 1) ne qq/"/ ) {
-      Jmespath::ValueException->throw({ message => 'Cannot call length on unquoted string' });
+    if ( substr($subject, 0, 1) eq qq/"/ and substr($subject, -1, 1) eq qq/"/ ) {
+      $subject = substr $subject, 1, -1;       # quoted string remove quotes
+      #Jmespath::ValueException->throw({ message => 'Cannot call length on unquoted string' });
     }
-    $subject = substr $subject, 1, -1;       # quoted string remove quotes
     return length $subject;
   }
   elsif ( ref $subject eq 'ARRAY' ) {
@@ -158,15 +219,16 @@ sub jp_map { }
 # must be all numbers or strings in order to work
 sub jp_max {
   my ( $collection ) = @_;
+  return undef if not defined $collection;
   return undef if scalar( @$collection ) == 0;
   my $found_type = @{$collection}[0] =~ /^[0-9]+$/ ? 'int' : 'str';
   foreach ( @$collection ) {
-    Jmespath::ValueException->throw({ message => 'max(): Boolean is invalid' } )
+    Jmespath::ValueException->new({ message => 'max(): Boolean is invalid' } )->throw
         if ref $_ eq 'JSON::PP::Boolean';
-    Jmespath::ValueException->throw({ message => 'max(): null is invalid' } )
+    Jmespath::ValueException->new({ message => 'max(): null is invalid' } )->throw
         if not defined $_;
     my $typ = $_ =~ /^[0-9]+$/ ? 'int' : 'str';
-    Jmespath::ValueException->throw({ message => 'max(): mixed int and str disallowed' })
+    Jmespath::ValueException->new({ message => 'max(): mixed int and str disallowed' })->throw
         if $found_type ne $typ;
   }
   my @sorted = sort( @$collection );
@@ -196,6 +258,12 @@ sub jp_merge {}
 sub jp_min {}
 sub jp_min_by {}
 
+sub jp_ne {
+  my ($left, $right) = @_;
+  return 'true' if $left != $right;
+  return 'false';
+}
+
 #
 #
 sub jp_not_null {
@@ -211,7 +279,9 @@ sub jp_reverse {
 }
 
 sub jp_sort {}
+
 sub jp_sort_by {}
+
 sub jp_starts_with {}
 
 sub jp_sum {
