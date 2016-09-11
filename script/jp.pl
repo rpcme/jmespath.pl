@@ -8,6 +8,7 @@ use Pod::Usage;
 use File::Slurp qw(slurp);
 use Data::Dumper;
 use Try::Tiny;
+use v5.14;
 
 my $ast = 0;
 my $help = 0;
@@ -29,7 +30,6 @@ $Jmespath::VERBOSE = 1 if $verbose;
 
 $expression = pop @ARGV;
 
-#if ($file) { $data = slurp( $file ) } else { $data = slurp(\*STDIN); }
 
 #exit(0);
 if ($ast) {
@@ -44,21 +44,15 @@ if ($ast) {
   };
 }
 
-$data = slurp ( $file );
+#$data = slurp ( $file );
+if ($file) { $data = slurp( $file ) } else { $data = slurp(\*STDIN); }
 $data =~ s/(?<!\r)\n/\r\n/g;
 
 try {
-  my $result = Jmespath->search($expression, $data);
-  if ( ref $result eq 'ARRAY' ) {
-    print encode_json( $result ) . "\n";
-  }
-  else {
-    print $result . "\n";
-  }
+  say Jmespath->search($expression, $data);
   exit(0);
 } catch {
-  print Dumper $_;
-  print $_->to_string;
+  say $_->to_string;
   exit(1)
 };
 

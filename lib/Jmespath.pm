@@ -4,10 +4,11 @@ use Jmespath::Parser;
 use Jmespath::Visitor;
 use JSON qw(encode_json decode_json);
 use Try::Tiny;
-
+use v5.14;
 our $VERSION = '0.01';
 #our $EXPORT = qw(compile search);
 our $VERBOSE = 0;
+use utf8;
 
 sub compile {
   my ( $class, $expression ) = @_;
@@ -15,21 +16,34 @@ sub compile {
   try {
     return Jmespath::Parser->new->parse( $expression );
   } catch {
-    print "caught exception\n";
-    $_->throw;
+    say $_->stringify;
+    exit(1)
   };
 }
 
 sub search {
   my ( $class, $expression, $data, $options ) = @_;
-  my $result = Jmespath::Parser->new->parse( $expression )
-    ->search( JSON->new->allow_nonref->decode( $data ), $options );
+  my ($result);
+  try {
+    $result = Jmespath::Parser->new->parse( $expression )
+      ->search( JSON->new->allow_nonref->utf8->decode( $data ), $options );
+  } catch {
+    $_->throw;
+  };
+
+  return 'null' if not defined $result;
 
   # JSON block result
-  if ( ref $result eq 'HASH' or
-       ref $result eq 'ARRAY' ) {
-    return JSON->new->allow_nonref->encode( $result ); }
-
+  if ( ( ref ($result) eq 'HASH'  ) or
+       ( ref ($result) eq 'ARRAY' ) ) {
+    try {
+      $result = JSON->new->utf8->allow_nonref->space_after->encode( $result );
+      return $result;
+    } catch {
+      Jmespath::ValueException->new( message => "cannat encode" )->throw;
+    };
+  }
+  
   # Numeric result
   if ( $result =~ /[0-9]+/ ) {
     return $result;
@@ -39,6 +53,8 @@ sub search {
   if ( defined $ENV{JP_UNQUOTED} and $ENV{JP_UNQUOTED} ne '0' ) {
     return $result;
   }
+
+  return $result if $result eq 'false' or $result eq 'true';
 
   # Quoted string result
   return q{"} . $result . q{"};
