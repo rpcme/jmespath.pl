@@ -9,10 +9,8 @@ use Jmespath::Visitor;
 use Jmespath::ParsedResult;
 use Jmespath::IncompleteExpressionException;
 
-use Math::Random;
 use List::Util qw(any);
 use Try::Tiny;
-use Data::Dumper;
 no strict 'refs';
 
 $| = 1;
@@ -116,7 +114,7 @@ sub _parse {
   $self->{_index}      = 0;
   $self->{_tokens}     = Jmespath::Lexer->new->tokenize($expression);
   trace('_parse: tokenization complete');
-  tracedump($self->{_tokens});
+  trace('_parse: tokens:', $self->{_tokens});
   my $parsed = $self->_expression(0); #binding_power = 0
   trace('_parse: expression analysis complete');
   if ($self->_current_token_type ne 'eof') {
@@ -133,21 +131,21 @@ sub _parse {
 sub _expression {
   my ( $self, $binding_power ) = @_;
   trace("_expression start");
-
   $binding_power = defined $binding_power ? $binding_power : 0;
-
+  trace("_expression binding_power2 $binding_power");
+  
   # Get the current token under evaluation
   my $left_token = $self->_lookahead_token(0);
-  trace("_expression: left_token: $left_token");
+  trace("_expression: left_token:", $left_token);
   # Advance the token index
   $self->_advance;
 
   my $nud_function = '_token_nud_' . $left_token->{type};
   if ( not exists &$nud_function ) { $self->_error_nud_token; }
   trace("_expression: nud_function: $nud_function");
+  trace("_expression: left_token:", $left_token);
   my $left_ast = &$nud_function($self, $left_token);
-
-  trace("_expression: left_token:" . $left_token->{value});
+  trace("_expression: left_ast:", $left_ast);
 
   my $current_token = $self->_current_token_type;
   trace("_expression: current_token_type: $current_token");
@@ -158,21 +156,21 @@ sub _expression {
     my $led = '_token_led_' . $current_token;
     trace("_expression: led: $led");
 #    my $res = &$led($self, $left);
-
-    $self->_error_led_token($self->_lookahead_token(0))
-        if not defined &$led;
-
-    $self->_advance;
-
-    $left_ast = &$led($self, $left_ast);
-    trace("_expression: left now " . $left_ast->{type});
-    $current_token = $self->_current_token_type;
-    trace("_expression: _current_token_type : $current_token");
-    trace("_expression: current binding power: $binding_power, next: " . $BINDING_POWER->{$current_token});
+    if (not defined \&$led) {
+      $self->_error_led_token($self->_lookahead_token(0));
+    }
+    else {
+      $self->_advance;
+      $left_ast = &$led($self, $left_ast);
+      trace("_expression: left now " . $left_ast->{type});
+      $current_token = $self->_current_token_type;
+      trace("_expression: _current_token_type : $current_token");
+      trace("_expression: current binding power: $binding_power, next: " .
+            $BINDING_POWER->{$current_token});
+    }
   }
 
-  trace(" _expression: return:\n");
-  tracedump( $left_ast );
+  trace(" _expression: return:\n", $left_ast);
   return $left_ast;
 }
 
@@ -330,7 +328,6 @@ sub _token_led_dot {
   my ($self, $left) = @_;
   trace("_token_led_dot: start");
   trace("_token_led_dot: _current_token_type: " . $self->_current_token_type );
-#  tracedump($left);
   if ($self->_current_token_type ne 'star') {
     trace("_token_led_dot: ne star");
 
@@ -350,7 +347,6 @@ sub _token_led_dot {
   }
   $self->_advance;
   my $right = $self->_parse_projection_rhs( $BINDING_POWER->{ dot } );
-#  tracedump($right);
   return Jmespath::Ast->value_projection($left, $right);
 }
 
@@ -424,6 +420,7 @@ sub _token_led_ne {
 
 sub _token_led_gt {
   my ($self, $left) = @_;
+  trace('_token_led_gt start');
   return $self->_parse_comparator($left, 'gt');
 }
 
@@ -481,7 +478,7 @@ sub _project_if_slice {
 
 sub _parse_comparator {
   my ($self, $left, $comparator) = @_;
-  my $right = $self->_expression( $BINDING_POWER->{ comparator } );
+  my $right = $self->_expression( $BINDING_POWER->{ $comparator } );
   return Jmespath::Ast->comparator($comparator, $left, $right);
 }
 
@@ -512,7 +509,6 @@ sub _parse_multi_select_hash {
     my $value = $self->_expression(0);
     my $node = Jmespath::Ast->key_val_pair( $key_name,
                                             $value );
-#    tracedump($node);
     push @pairs, $node;
     if ( $self->_current_token_type eq 'comma' ) {
       $self->_match('comma');
@@ -652,7 +648,7 @@ sub _lookahead_token {
 
   my $lookahead = @{$self->{ _tokens }}[ $self->{_index} + $number ];
 
-  trace("_lookahead_token:");
+  trace("_lookahead_token:", $lookahead);
 
   return $lookahead;
 }
@@ -704,14 +700,17 @@ sub purge {
 
 sub trace {
   my $message = shift;
+  my $obj = shift;
   my ($package, $filename, $line) = caller;
 
-  print $package . ' ' . $line . ' ' . $message . "\n" if $Jmespath::VERBOSE == 1;
+  if ( $Jmespath::VERBOSE == 1 ) {
+    print $package . ' ' . $line . ' ' . $message . "\n";
+    if (defined $obj) {
+      use Data::Dumper;
+      print Dumper $obj;
+    }
+  }
 }
 
-sub tracedump {
-  return if $Jmespath::VERBOSE != 1;
-  print Dumper shift;
-}
 
 1;

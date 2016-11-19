@@ -4,7 +4,9 @@ use strict;
 use warnings;
 use Try::Tiny;
 use List::Util qw(unpairs);
-no strict 'refs';
+use Scalar::Util qw(looks_like_number);
+use JSON;
+no strict 'refs'; # Need this for sub dereferencing
 use Jmespath::Expression;
 use Jmespath::Functions;
 use Jmespath::AttributeException;
@@ -29,15 +31,16 @@ sub new {
   my ($class, $options) = @_;
   my $self = $class->SUPER::new($options);
   if ( not defined $options) { $options = $OPTIONS_DEFAULT; }
-  if ( defined $options->{hash_cls} ) { $self->{_hash_cls} = $options->{ hash_cls }; }
-  if ( defined $options->{custom_functions} ) { $self->{_functions} = eval { 'use ' . $options->{custom_functions}; }}
+  $self->{_hash_cls} = $options->{ hash_cls }
+    if defined $options->{hash_cls};
+  $self->{_functions} = eval { 'use ' . $options->{custom_functions} }
+    if defined $options->{custom_functions};
 
   return $self;
 }
 
 sub visit {
   my ($self, $node, $args) = @_;
-  use Data::Dumper;
   my $node_type = $node->{type};
   try {
     my $method = 'visit_' . $node->{type};
@@ -150,6 +153,7 @@ sub visit_flatten {
 
 sub visit_identity {
   my ($self, $node, $value) = @_;
+  return undef if not defined $value;
   # SHEER NEGATIVE ENERGY HACKERY - FORCE NUMBERS TO BE NUMBERS
   # THANK YOU JSON.PM
   $value = 1 * $value if $value =~ /^[0-9]+$/;
@@ -236,9 +240,8 @@ sub visit_multi_select_list {
 
 sub visit_or_expression {
   my ($self, $node, $value) = @_;
-
   my $matched = $self->visit( @{$node->{children}}[0], $value );
-  if ( $self->_is_false($matched) == 1 ) {
+  if ( $self->_is_false($matched)) {
     $matched = $self->visit(@{$node->{children}}[1], $value);
   }
   return $matched;
@@ -247,15 +250,16 @@ sub visit_or_expression {
 sub visit_and_expression {
   my ($self, $node, $value) = @_;
   my $matched = $self->visit(@{$node->{children}}[0], $value);
-  return $matched if $self->_is_false($matched) == 1;
-  return $self->visit(@{$node->{children}}[1], $value);
+  # return if the left side eval is found to be false
+  return $matched if $self->_is_false($matched);
+  # if this isn't true then the whole evaluation is false
+  $matched = $self->visit(@{$node->{children}}[1], $value);
+  return $matched;
 }
 
 sub visit_not_expression {
   my ($self, $node, $value) = @_;
   my $original_result = $self->visit(@{$node->{children}}[0], $value);
-  return 'null' if not defined $self->_is_true($original_result);
-
   my $result = $self->_is_true($original_result);
   $result = $result == 0 ? 1 : 0;
 
@@ -277,7 +281,7 @@ sub visit_projection {
   my $base = $self->visit(@{$node->{children}}[0], $value);
   return undef if ref($base) ne 'ARRAY';
   return 'null' if scalar @$base == 0;
-  
+
   my $collected = [];
   foreach my $element (@$base) {
     my $current = $self->visit(@{$node->{children}}[1], $element);
@@ -307,10 +311,13 @@ sub visit_value_projection {
 
 sub _is_false {
   my ($self, $value) = @_;
-
   return 1 if not defined $value;
+#  return 1 if looks_like_number($value) and $value == 0;
   return 1 if $value eq 'false';
+  return 0 if $value eq 'true';
   return 1 if $value eq '';
+  return 1 if JSON::is_bool($value) and $value == 0;
+  return 0 if JSON::is_bool($value) and $value == 1;
   return 1 if ( ref($value) eq 'SCALAR' and not $value );
   return 1 if ( ref($value) eq 'SCALAR' and $value eq '' );
   return 1 if ( ref($value) eq 'ARRAY'  and scalar @$value == 0 );

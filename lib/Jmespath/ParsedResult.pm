@@ -15,8 +15,7 @@ sub search {
   my ( $self, $data, $options ) = @_;
   $options = $options || undef;
   my $interpreter = Jmespath::TreeInterpreter->new($options);
-  my $result = $interpreter->visit( $self->{ parsed }, $data );
-  return $result;
+  return $interpreter->visit( $self->{ parsed }, $data );
 }
 
 sub _render_dot_file {

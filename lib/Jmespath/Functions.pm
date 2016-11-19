@@ -120,11 +120,13 @@ sub jp_ends_with {
 
 sub jp_eq {
   my ($left, $right) = @_;
-  if ( looks_like_number($left) and looks_like_number($right) and $left eq $right) {
-    return 'true';
+  if ( looks_like_number($left) and
+       looks_like_number($right) and
+       $left eq $right) {
+    return JSON::true;
   }
-  return 'true' if $left eq $right;
-  return 'false';
+  return JSON::true if $left eq $right;
+  return JSON::false;
 }
 
 sub jp_floor {
@@ -143,27 +145,26 @@ sub jp_floor {
 
 sub jp_gt {
   my ($left, $right) = @_;
-  return 'true' if $left > $right;
-  return 'false';
+  return JSON::true if $left > $right;
+  return JSON::false;
 }
 
 sub jp_gte {
   my ($left, $right) = @_;
-  return 'true' if $left >= $right;
-  return 'false';
+  return JSON::true if $left >= $right;
+  return JSON::false;
 }
 
 sub jp_lt {
   my ($left, $right) = @_;
-  return 'null' if (! looks_like_number($left) || ! looks_like_number($right) );
-  return 'true' if $left < $right;
-  return 'false';
+  return JSON::true if $left < $right;
+  return JSON::false;
 }
 
 sub jp_lte {
   my ($left, $right) = @_;
-  return 'true' if $left <= $right;
-  return 'false';
+  return JSON::true if $left <= $right;
+  return JSON::false;
 }
 
 sub jp_join {
@@ -177,7 +178,7 @@ sub jp_join {
     Jmespath::ValueException
         ->new({message =>'Cannot join boolean'})
         ->throw
-        if ref $_ eq 'JSON::PP::Boolean';
+        if ref $_ eq 'JSON::Boolean';
   }
   return '"' . join ( $glue, @$array ) . '"';
 }
@@ -224,7 +225,7 @@ sub jp_max {
   my $found_type = @{$collection}[0] =~ /^[0-9]+$/ ? 'int' : 'str';
   foreach ( @$collection ) {
     Jmespath::ValueException->new({ message => 'max(): Boolean is invalid' } )->throw
-        if ref $_ eq 'JSON::PP::Boolean';
+        if ref $_ eq 'JSON::Boolean';
     Jmespath::ValueException->new({ message => 'max(): null is invalid' } )->throw
         if not defined $_;
     my $typ = $_ =~ /^[0-9]+$/ ? 'int' : 'str';

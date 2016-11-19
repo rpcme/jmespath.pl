@@ -30,7 +30,6 @@ sub search {
   } catch {
     $_->throw;
   };
-
   return 'null' if not defined $result;
 
   # JSON block result
@@ -40,24 +39,27 @@ sub search {
       $result = JSON->new->utf8->allow_nonref->space_after->encode( $result );
       return $result;
     } catch {
-      Jmespath::ValueException->new( message => "cannat encode" )->throw;
+      Jmespath::ValueException->new( message => "cannot encode" )->throw;
     };
   }
-  
+
+  # Boolean result
+  return 'false' if $result eq '0';
+  return 'true' if $result eq '1';
+  return $result if $result eq 'false' or $result eq 'true';
+
   # Numeric result
   if ( $result =~ /[0-9]+/ ) {
     return $result;
   }
-  
+
+
   # Unquoted string result
-  if ( defined $ENV{JP_UNQUOTED} and $ENV{JP_UNQUOTED} ne '0' ) {
-    return $result;
+  if ( $ENV{JP_UNQUOTED} == 0 or
+       not defined $ENV{JP_UNQUOTED} ) {
+    $result = q{"} . $result . q{"};
   }
-
-  return $result if $result eq 'false' or $result eq 'true';
-
-  # Quoted string result
-  return q{"} . $result . q{"};
+  return $result;
 }
 
 1;
