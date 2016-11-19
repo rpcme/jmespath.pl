@@ -8,7 +8,11 @@ WriteMakefile(
     AUTHOR        => 'Richard Elberger',
     INSTALLDIRS   => ($] < 5.011 ? 'perl' : 'site'),
     PREREQ_PM => {
-        'Math::Random'   => 0,
+                  'Try::Tiny'      => 0,
+                  'File::Slurp'    => 0,
+                  'Moose'          => 0,
+                  'JSON'           => 0,
+                  'String::Util'   => 0,
     },
     clean => {
         FILES => 'cover_db test-*',
