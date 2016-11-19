@@ -12,8 +12,14 @@ use Try::Tiny;
 my $cdir = dirname(__FILE__) . '/compliance';
 print "$cdir\n";
 opendir(my $dh, $cdir) || die "can't opendir $cdir: $!";
-my @files = grep { /json$/ && -f "$cdir/$_" } readdir($dh);
+my @files;
+if ($ARGV[0]) {
+  @files = $ARGV[0];
+} else {
+  @files = grep { /json$/ && -f "$cdir/$_" } readdir($dh);
+}
 closedir $dh;
+$ENV{JP_UNQUOTED} = 1;
 
 foreach my $file ( @files ) {
   next if $file eq 'benchmarks.json';
