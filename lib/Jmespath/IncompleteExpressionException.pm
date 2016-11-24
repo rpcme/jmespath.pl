@@ -1,5 +1,4 @@
 package Jmespath::IncompleteExpressionException;
-
 use Moose;
 extends 'Jmespath::ParseException';
 with 'Throwable';

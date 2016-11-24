@@ -24,6 +24,7 @@ our $SIMPLE_TOKENS = { '.' => 'dot',
                        ')' => 'rparen',
                        '{' => 'lbrace',
                        '}' => 'rbrace', };
+our $BACKSLASH = "\\";
 
 sub new {
   my ( $class ) = @_;
@@ -64,7 +65,7 @@ sub tokenize {
           start => $start,
           end   => $start + length $buff };
     }
-    
+
     elsif ( any { $_ eq $self->{_current} } @$WHITESPACE ) {
       $self->_next;
     }
@@ -236,10 +237,11 @@ sub _consume_until {
   my ($self, $delimiter) = @_;
   my $start = $self->{_position};
   my $buff = '';
-  $self->_next;   
+  $self->_next;
   while ( $self->{_current} ne $delimiter ) {
-    if ($self->{_current} eq '\\') {
-      $buff .= '\\';
+    if ($self->{_current} eq $BACKSLASH) {
+      $buff .= $BACKSLASH;
+      # Advance to escaped character.
       $self->_next;
     }
     if (not defined $self->{_current}) {

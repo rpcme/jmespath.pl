@@ -66,11 +66,14 @@ sub visit_subexpression {
 
 sub visit_field {
   my ($self, $node, $value) = @_;
+
   try {
     return $value->{$node->{value}};
   } catch {
-    Jmespath::AttributeException->new->throw;
-  };
+    # when the field cannot be looked up, then the spec defines the
+    # return value as undef.
+    return undef;
+  }
 }
 
 sub visit_comparator {
@@ -119,7 +122,7 @@ sub visit_filter_projection {
   my ($self, $node, $value) = @_;
   my $base = $self->visit( @{$node->{children}}[0], $value);
   return undef if ref($base) ne 'ARRAY';
-  return 'null' if scalar @$base == 0;
+  #return undef if scalar @$base == 0;
   my $comparator_node = @{ $node->{children} }[2];
 
   my $collected = [];
@@ -179,24 +182,89 @@ sub visit_index_expression {
   return $result;
 }
 
+
+# Rules:
+#
+
 sub visit_slice {
   my ($self, $node, $value) = @_;
-  return undef if ref($value) ne 'ARRAY';
-  # slice defaults
-  my $start = defined $node->{children}->[0] ? $node->{children}->[0] : 0;
-  my $end = defined $node->{children}->[1] ? $node->{children}->[1] : scalar @$value;
-  my $step = defined $node->{children}->[2] ? $node->{children}->[2] : 1;
-  $start  = scalar(@$value) + $start if $start < 0;
-  $end    = scalar(@$value) + $end   if $end   < 0;
-  @$value = reverse @$value          if $step  < 0;
-  $step   = abs $step;
 
-  my @selected;
-  for ( my $idx = $start; $idx < $end; $idx += $step ) {
-    my $val =  @{$value}[$idx];
-    push @selected, $val;
+  # Rule 08: If the element being sliced is an array and yields no
+  #       results, the result MUST be an empty array.
+  my $selected = [];
+  my ($start, $stop);
+
+  # Rule 05: If the given step is omitted, it it assumed to be 1.
+  my $step = defined $node->{children}->[2] ? $node->{children}->[2] : 1;
+
+  # Rule 07: If the element being sliced is not an array, the result is null.
+  return undef if ref($value) ne 'ARRAY';
+
+  # Rule 06: If the given step is 0, an error MUST be raised.
+  if ($step == 0) {
+    Jmespath::ValueException->new(message => 'Invalid slice expression')->throw;
   }
-  return \@selected;
+  if (scalar @{$node->{children}} > 3) {
+    Jmespath::ValueException->new(message => 'Invalid slice expression')->throw;
+  }
+
+  # Rule 02: If no start position is given, it is assumed to be 0 if
+  #          the given step is greater than 0 or the end of the array
+  #          if the given step is less than 0.
+  if (not defined $node->{children}->[0] and $step > 0) {
+    $start = 0;
+  }
+  elsif (not defined $node->{children}->[0] and $step < 0) {
+    $start = scalar(@$value);
+  }
+  elsif ( $node->{children}->[0] < 0) {
+    $start = scalar(@$value) + $node->{children}->[0];
+  }
+  else {
+    $start = $node->{children}->[0];
+  }
+
+  # Rule 01: If a negative start position is given, it is calculated as the
+  #          total length of the array plus the given start position.
+  # if ($start < 0) {
+  #   $start = scalar(@$value) + $start;
+  # }
+
+  # Rule 04: If no stop position is given, it is assumed to be the
+  #          length of the array if the given step is greater than 0
+  #          or 0 if the given step is less than 0.
+  if (not defined $node->{children}->[1] and $step > 0) {
+    $stop = scalar(@$value);
+  }
+  elsif (not defined $node->{children}->[1] and $step < 0) {
+    $stop = -1;
+  }
+  # Rule 03: If a negative stop position is given, it is calculated as
+  #          the total length of the array plus the given stop
+  #          position.
+  elsif ($node->{children}->[1] < 0 and $step < 0) {
+    $stop = scalar(@$value) + $node->{children}->[1];
+  }
+  elsif ($node->{children}->[1] < 0 and $step > 0) {
+    $stop = scalar(@$value) + $node->{children}->[1];
+  }
+  else {
+    $stop = $node->{children}->[1];
+  }
+
+  if ($step > 0) {
+    for ( my $idx = $start; $idx < $stop; $idx += $step ) {
+      push @$selected, @{$value}[$idx];
+      last if $idx == scalar(@$value) - 1
+    }
+  }
+  else {
+    for ( my $idx = $start; $idx > $stop; $idx += $step ) {
+      push @$selected, @{$value}[$idx];
+      last if $idx == 0;
+    }
+  }
+  return $selected;
 }
 
 sub visit_key_val_pair {
@@ -280,7 +348,7 @@ sub visit_projection {
   my ($self, $node, $value) = @_;
   my $base = $self->visit(@{$node->{children}}[0], $value);
   return undef if ref($base) ne 'ARRAY';
-  return 'null' if scalar @$base == 0;
+  #return 'null' if scalar @$base == 0;
 
   my $collected = [];
   foreach my $element (@$base) {

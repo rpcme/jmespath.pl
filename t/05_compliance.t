@@ -38,11 +38,22 @@ foreach my $file ( @files ) {
       $expr = eval("\"$expr\"");
       my $expect = sq(JSON->new->allow_nonref->space_after->encode($case->{result}));
       my $r;
-      try {
-        my $r = Jmespath->search($expr, $text);
-        is $r, $expect, $msg;
-      } catch {
-      };
+      if (exists $case->{error}) {
+        try {
+          my $r = Jmespath->search($expr, $text);
+          fail('Expected exception');
+        } catch {
+          isa_ok $_, 'Jmespath::ValueException', $comment;
+        };
+      }
+      else {
+        try {
+          my $r = Jmespath->search($expr, $text);
+          is $r, $expect, $msg;
+        } catch {
+           fail($comment . ' : ' . 'EXCEPTION MESSAGE: ' . $_->message )
+        };
+      }
       $cn++;
     }
   }
