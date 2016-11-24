@@ -142,7 +142,6 @@ sub visit_flatten {
   my $base = $self->visit(@{$node->{'children'}}[0], $value);
 
   return undef if ref($base) ne 'ARRAY';
-  return undef if scalar @$base == 0;
 
   my $merged_list = [];
   foreach my $element (@$base) {

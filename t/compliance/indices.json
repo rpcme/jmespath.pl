@@ -194,11 +194,13 @@
         },
         {
            "expression": "reservations[].instances[].baz[].baz",
-           "result": [[1, 2], [], [], [3, 4]]
+            "result": [[1, 2], [], [], [3, 4]],
+            "is_deeply": 1
         },
         {
            "expression": "reservations[].instances[].qux[].baz",
-           "result": [[], [1, 2, 3], [4], [], [], [1, 2, 3], [4], []]
+            "result": [[], [1, 2, 3], [4], [], [], [1, 2, 3], [4], []],
+            "is_deeply": 1
         },
         {
            "expression": "reservations[].instances[].qux[].baz[]",
@@ -218,7 +220,8 @@
         {
            "expression": "foo[]",
            "result": [["one", "two"], ["three", "four"], ["five", "six"],
-                      ["seven", "eight"], ["nine"], ["ten"]]
+                      ["seven", "eight"], ["nine"], ["ten"]],
+            "is_deeply": 1
         },
         {
            "expression": "foo[][0]",
@@ -274,22 +277,26 @@
         {
            "expression": "foo",
            "result": [{"bar": [{"qux": 2, "baz": 1}, {"qux": 4, "baz": 3}]},
-                      {"bar": [{"qux": 6, "baz": 5}, {"qux": 8, "baz": 7}]}]
+                      {"bar": [{"qux": 6, "baz": 5}, {"qux": 8, "baz": 7}]}],
+            "is_deeply": 1
         },
         {
            "expression": "foo[]",
            "result": [{"bar": [{"qux": 2, "baz": 1}, {"qux": 4, "baz": 3}]},
-                      {"bar": [{"qux": 6, "baz": 5}, {"qux": 8, "baz": 7}]}]
+                      {"bar": [{"qux": 6, "baz": 5}, {"qux": 8, "baz": 7}]}],
+            "is_deeply": 1
         },
         {
            "expression": "foo[].bar",
            "result": [[{"qux": 2, "baz": 1}, {"qux": 4, "baz": 3}],
-                      [{"qux": 6, "baz": 5}, {"qux": 8, "baz": 7}]]
+                      [{"qux": 6, "baz": 5}, {"qux": 8, "baz": 7}]],
+            "is_deeply": 1
         },
         {
            "expression": "foo[].bar[]",
            "result": [{"qux": 2, "baz": 1}, {"qux": 4, "baz": 3},
-                      {"qux": 6, "baz": 5}, {"qux": 8, "baz": 7}]
+                      {"qux": 6, "baz": 5}, {"qux": 8, "baz": 7}],
+            "is_deeply": 1
         },
         {
            "expression": "foo[].bar[].baz",
