@@ -6,11 +6,12 @@ use File::Basename;
 use File::Slurp qw(slurp);
 use Jmespath;
 use JSON;
+use String::Escape qw(unbackslash);
 $ENV{JP_UNQUOTED} = 1;
 use Try::Tiny;
 
 my $cdir = dirname(__FILE__) . '/compliance';
-print "$cdir\n";
+
 opendir(my $dh, $cdir) || die "can't opendir $cdir: $!";
 my @files;
 if ($ARGV[0]) {
@@ -36,7 +37,9 @@ foreach my $file ( @files ) {
       my $msg = $n . ' case ' . $cn . ' : ' . $comment;
 
       my $expr   = sq(JSON->new->allow_nonref->space_after->encode($case->{expression}));
-      $expr = eval("\"$expr\"");
+#      print "$expr\n";
+      $expr = unbackslash($expr);
+#      print "$expr\n";
       my $expect = sq(JSON->new->allow_nonref->space_after->encode($case->{result}));
       my $r;
       if (exists $case->{error}) {
