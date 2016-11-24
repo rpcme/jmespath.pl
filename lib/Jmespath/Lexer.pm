@@ -262,7 +262,7 @@ sub _consume_literal {
   my ($self) = @_;
   my $start = $self->{_position};
   my $lexeme = $self->_consume_until('`');
-  $lexeme  =~ s/\\\\`/`/;
+  $lexeme  =~ s/\\`/`/;
   my $parsed_json;
   try {
     $parsed_json = JSON->new->allow_nonref->decode($lexeme);

@@ -156,7 +156,7 @@ sub _expression {
       my $led = '_token_led_' . $current_token;
       trace("_expression: led: $led");
       #    my $res = &$led($self, $left);
-      if (not defined \&$led) {
+      if (not exists &$led) {
         $self->_error_led_token($self->_lookahead_token(0));
       }
       else {

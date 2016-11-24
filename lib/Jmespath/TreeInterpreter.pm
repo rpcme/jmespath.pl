@@ -124,7 +124,6 @@ sub visit_filter_projection {
   return undef if ref($base) ne 'ARRAY';
   #return undef if scalar @$base == 0;
   my $comparator_node = @{ $node->{children} }[2];
-
   my $collected = [];
   foreach my $element (@$base) {
     if ( $self->_is_true($self->visit($comparator_node, $element))) {
@@ -363,12 +362,11 @@ sub visit_value_projection {
   my $base = $self->visit(@{$node->{children}}[0], $value);
   my @basekeys;
   try {
-    @basekeys = map { $_ => $base->{ $_ } } sort keys %$base ;
+    @basekeys = map { $base->{ $_ } } sort keys %$base ;
   } catch {
     Jmespath::AttributeException->new->throw;
   };
 
-  return 'null' if scalar @basekeys == 0;
   my $collected = [];
   foreach my $element (@basekeys) {
     my $current = $self->visit(@{$node->{children}}[1], $element);

@@ -120,13 +120,29 @@ sub jp_ends_with {
 
 sub jp_eq {
   my ($left, $right) = @_;
-  if ( looks_like_number($left) and
-       looks_like_number($right) and
-       $left eq $right) {
-    return JSON::true;
+  return JSON::false if not defined $left;
+  return JSON::false if not defined $right;
+  if (looks_like_number($left) and
+      looks_like_number($right)) {
+    return JSON::true if $left == $right;
+    return JSON::false;
   }
-  return JSON::true if $left eq $right;
+  if (not looks_like_number($left) and
+      not looks_like_number($right)) {
+    return JSON::true if $left eq $right;
+    return JSON::false;
+  }
+  # return JSON::false if not looks_like_number($left);
+  # return JSON::false if not looks_like_number($right);
+  # return JSON::true if $left == $right;
   return JSON::false;
+  # if ( looks_like_number($left) and
+  #      looks_like_number($right) and
+  #      $left eq $right) {
+  #   return JSON::true;
+  # }
+  # return JSON::true if $left eq $right;
+  # return JSON::false;
 }
 
 sub jp_floor {
@@ -145,24 +161,32 @@ sub jp_floor {
 
 sub jp_gt {
   my ($left, $right) = @_;
+  return JSON::false if not looks_like_number($left);
+  return JSON::false if not looks_like_number($right);
   return JSON::true if $left > $right;
   return JSON::false;
 }
 
 sub jp_gte {
   my ($left, $right) = @_;
+  return JSON::false if not looks_like_number($left);
+  return JSON::false if not looks_like_number($right);
   return JSON::true if $left >= $right;
   return JSON::false;
 }
 
 sub jp_lt {
   my ($left, $right) = @_;
+  return JSON::false if not looks_like_number($left);
+  return JSON::false if not looks_like_number($right);
   return JSON::true if $left < $right;
   return JSON::false;
 }
 
 sub jp_lte {
   my ($left, $right) = @_;
+  return JSON::false if not looks_like_number($left);
+  return JSON::false if not looks_like_number($right);
   return JSON::true if $left <= $right;
   return JSON::false;
 }
@@ -261,8 +285,20 @@ sub jp_min_by {}
 
 sub jp_ne {
   my ($left, $right) = @_;
-  return 'true' if $left != $right;
-  return 'false';
+  return JSON::false if not defined $left;
+  return JSON::false if not defined $right;
+  if (looks_like_number($left) and
+      looks_like_number($right)) {
+    return JSON::true if $left != $right;
+    return JSON::false;
+  }
+  if (not looks_like_number($left) and
+      not looks_like_number($right)) {
+    return JSON::true if $left ne $right;
+    return JSON::false;
+  }
+
+  return JSON::false;
 }
 
 #
