@@ -122,7 +122,8 @@ sub visit_filter_projection {
   my ($self, $node, $value) = @_;
   my $base = $self->visit( @{$node->{children}}[0], $value);
   return undef if ref($base) ne 'ARRAY';
-  #return undef if scalar @$base == 0;
+  return undef if scalar @$base == 0;
+
   my $comparator_node = @{ $node->{children} }[2];
   my $collected = [];
   foreach my $element (@$base) {
@@ -141,6 +142,8 @@ sub visit_flatten {
   my $base = $self->visit(@{$node->{'children'}}[0], $value);
 
   return undef if ref($base) ne 'ARRAY';
+  return undef if scalar @$base == 0;
+
   my $merged_list = [];
   foreach my $element (@$base) {
     if (ref($element) eq 'ARRAY') {
@@ -295,12 +298,13 @@ sub visit_multi_select_hash {
 sub visit_multi_select_list {
   my ($self, $node, $value) = @_;
   return undef if not defined $value;
-  return 'null' if scalar @{$node->{children}} == 0;
+  return undef if scalar @{$node->{children}} == 0;
+
   my $collected = [];
   foreach my $child ( @{$node->{children}}) {
     my $result = $self->visit($child, $value);
-    next if not defined $result;
-    push @$collected, $self->visit($child, $value);
+    my $value = defined $result ? $self->visit($child, $value) : undef;
+    push @$collected, $value;
   }
   return $collected;
 }
@@ -347,7 +351,7 @@ sub visit_projection {
   my ($self, $node, $value) = @_;
   my $base = $self->visit(@{$node->{children}}[0], $value);
   return undef if ref($base) ne 'ARRAY';
-  #return 'null' if scalar @$base == 0;
+#  return undef if scalar @$base == 0;
 
   my $collected = [];
   foreach my $element (@$base) {
@@ -364,9 +368,9 @@ sub visit_value_projection {
   try {
     @basekeys = map { $base->{ $_ } } sort keys %$base ;
   } catch {
-    Jmespath::AttributeException->new->throw;
+    return undef;
   };
-
+  return undef if scalar @basekeys == 0;
   my $collected = [];
   foreach my $element (@basekeys) {
     my $current = $self->visit(@{$node->{children}}[1], $element);

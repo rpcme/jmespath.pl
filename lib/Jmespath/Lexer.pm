@@ -73,8 +73,15 @@ sub tokenize {
     elsif ( $self->{_current} eq q/[/ ) {
       my $start = $self->{_position};
       my $next_char = $self->_next;
-
-      if ( $next_char eq q/]/ ) {
+      # use Data::Dumper;
+      # print Dumper $next_char;
+      # if not defined $next_char;
+      if (not defined $next_char) {
+        Jmespath::LexerException->new( lexer_position => $start,
+                                       lexer_value => $self->{_current},
+                                       message => "Unexpected end of expression" )->throw;
+      }
+      elsif ( $next_char eq q/]/ ) {
         $self->_next;
         push @{$self->{STACK}},
           { type  => 'flatten',
@@ -238,21 +245,21 @@ sub _consume_until {
   my $start = $self->{_position};
   my $buff = '';
   $self->_next;
-  while ( $self->{_current} ne $delimiter ) {
+  while ($self->{_current} ne $delimiter ) {
     if ($self->{_current} eq $BACKSLASH) {
       $buff .= $BACKSLASH;
       # Advance to escaped character.
       $self->_next;
     }
+    $buff .= $self->{_current};
+    $self->_next;
     if (not defined $self->{_current}) {
       Jmespath::LexerException
           ->new( lexer_position => $start,
                  lexer_value => $self->{_expression},
-                 message => "Unclosed $delimiter delimiter" )
+                 message => "Unclosed delimiter $delimiter" )
           ->throw;
     }
-    $buff .= $self->{_current};
-    $self->_next;
   }
   $self->_next;
   return $buff;
@@ -327,19 +334,20 @@ sub _match_or_else {
   my $start = $self->{_position};
   my $current = $self->{_current};
   my $next_char = $self->_next;
-
-  if ( $next_char eq $expected ) {
-    $self->_next();
-    return { 'type' => $match_type,
-             'value' => $current . $next_char,
+  if ( not defined $next_char or
+       $next_char ne $expected ) {
+    return { 'type' => $else_type,
+             'value' => $current,
              'start' => $start,
-             'end' => $start + 1,
+             'end' => $start,
            };
   }
-  return { 'type' => $else_type,
-           'value' => $current,
+
+  $self->_next();
+  return { 'type' => $match_type,
+           'value' => $current . $next_char,
            'start' => $start,
-           'end' => $start,
+           'end' => $start + 1,
          };
 }
 
