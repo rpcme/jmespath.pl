@@ -27,7 +27,8 @@
       {
         "comment": "Matching an expression",
         "expression": "foo[?first == last]",
-        "result": [{"first": "foo", "last": "foo"}]
+          "result": [{"first": "foo", "last": "foo"}],
+             "is_deeply": 1
       },
       {
         "comment": "Verify projection created from filter",
@@ -48,7 +49,8 @@
       },
       {
         "expression": "foo[?age >= `25`]",
-        "result": [{"age": 25}, {"age": 30}]
+          "result": [{"age": 25}, {"age": 30}],
+             "is_deeply": 1
       },
       {
         "comment": "Greater than with a number",
@@ -63,7 +65,8 @@
       {
         "comment": "Greater than with a number",
         "expression": "foo[?age <= `25`]",
-        "result": [{"age": 20}, {"age": 25}]
+          "result": [{"age": 20}, {"age": 25}],
+             "is_deeply": 1
       },
       {
         "comment": "Greater than with a number",
@@ -76,7 +79,8 @@
       },
       {
         "expression": "foo[?age != `20`]",
-        "result": [{"age": 25}, {"age": 30}]
+          "result": [{"age": 25}, {"age": 30}],
+             "is_deeply": 1
       }
     ]
   },
@@ -99,12 +103,14 @@
       {
         "comment": "Matching an expression",
         "expression": "foo[?top.first == top.last]",
-        "result": [{"top": {"first": "foo", "last": "foo"}}]
+          "result": [{"top": {"first": "foo", "last": "foo"}}],
+             "is_deeply": 1
       },
       {
         "comment": "Matching a JSON array",
         "expression": "foo[?top == `{\"first\": \"foo\", \"last\": \"bar\"}`]",
-        "result": [{"top": {"first": "foo", "last": "bar"}}]
+          "result": [{"top": {"first": "foo", "last": "bar"}}],
+             "is_deeply": 1
       }
     ]
   },
@@ -195,73 +201,87 @@
       },
       {
         "expression": "foo[?key != `true`]",
-        "result": [{"key": false}, {"key": 0}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}]
+          "result": [{"key": false}, {"key": 0}, {"key": 1}, {"key": [0]},
+                     {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}],
+          "is_deeply": 1
       },
       {
         "expression": "foo[?key != `false`]",
         "result": [{"key": true}, {"key": 0}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?key != `0`]",
         "result": [{"key": true}, {"key": false}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?key != `1`]",
         "result": [{"key": true}, {"key": false}, {"key": 0}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?key != `null`]",
         "result": [{"key": true}, {"key": false}, {"key": 0}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": [1]}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": [1]}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?key != `[1]`]",
         "result": [{"key": true}, {"key": false}, {"key": 0}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?key != `{\"a\":2}`]",
         "result": [{"key": true}, {"key": false}, {"key": 0}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?`true` != key]",
         "result": [{"key": false}, {"key": 0}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?`false` != key]",
         "result": [{"key": true}, {"key": 0}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?`0` != key]",
         "result": [{"key": true}, {"key": false}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?`1` != key]",
         "result": [{"key": true}, {"key": false}, {"key": 0}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?`null` != key]",
         "result": [{"key": true}, {"key": false}, {"key": 0}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": [1]}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": [1]}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?`[1]` != key]",
         "result": [{"key": true}, {"key": false}, {"key": 0}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": {"a":2}}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": {"a":2}}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?`{\"a\":2}` != key]",
         "result": [{"key": true}, {"key": false}, {"key": 0}, {"key": 1}, {"key": [0]},
-          {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}]
+                   {"key": {"bar": [0]}}, {"key": null}, {"key": [1]}],
+             "is_deeply": 1
       }
     ]
   },
@@ -273,15 +293,18 @@
     "cases": [
       {
         "expression": "reservations[].instances[?bar==`1`]",
-        "result": [[{"foo": 2, "bar": 1}]]
+          "result": [[{"foo": 2, "bar": 1}]],
+             "is_deeply": 1
       },
       {
         "expression": "reservations[*].instances[?bar==`1`]",
-        "result": [[{"foo": 2, "bar": 1}]]
+          "result": [[{"foo": 2, "bar": 1}]],
+             "is_deeply": 1
       },
       {
         "expression": "reservations[].instances[?bar==`1`][]",
-        "result": [{"foo": 2, "bar": 1}]
+          "result": [{"foo": 2, "bar": 1}],
+             "is_deeply": 1
       }
     ]
   },
@@ -312,7 +335,8 @@
     "cases": [
       {
         "expression": "foo[?a==`1`].b.c",
-        "result": ["x", "y", "z"]
+          "result": ["x", "y", "z"],
+             "is_deeply": 1
       }
     ]
   },
@@ -322,7 +346,8 @@
       {
         "comment": "Filter with or expression",
         "expression": "foo[?name == 'a' || name == 'b']",
-        "result": [{"name": "a"}, {"name": "b"}]
+          "result": [{"name": "a"}, {"name": "b"}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?name == 'a' || name == 'e']",
@@ -330,7 +355,8 @@
       },
       {
         "expression": "foo[?name == 'a' || name == 'b' || name == 'c']",
-        "result": [{"name": "a"}, {"name": "b"}, {"name": "c"}]
+          "result": [{"name": "a"}, {"name": "b"}, {"name": "c"}],
+             "is_deeply": 1
       }
     ]
   },
@@ -340,7 +366,8 @@
       {
         "comment": "Filter with and expression",
         "expression": "foo[?a == `1` && b == `2`]",
-        "result": [{"a": 1, "b": 2}]
+          "result": [{"a": 1, "b": 2}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?a == `1` && b == `4`]",
@@ -354,31 +381,38 @@
       {
         "comment": "Filter with Or and And expressions",
         "expression": "foo[?c == `3` || a == `1` && b == `4`]",
-        "result": [{"a": 1, "b": 2, "c": 3}]
+          "result": [{"a": 1, "b": 2, "c": 3}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?b == `2` || a == `3` && b == `4`]",
-        "result": [{"a": 1, "b": 2, "c": 3}, {"a": 3, "b": 4}]
+          "result": [{"a": 1, "b": 2, "c": 3}, {"a": 3, "b": 4}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?a == `3` && b == `4` || b == `2`]",
-        "result": [{"a": 1, "b": 2, "c": 3}, {"a": 3, "b": 4}]
+          "result": [{"a": 1, "b": 2, "c": 3}, {"a": 3, "b": 4}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?(a == `3` && b == `4`) || b == `2`]",
-        "result": [{"a": 1, "b": 2, "c": 3}, {"a": 3, "b": 4}]
+          "result": [{"a": 1, "b": 2, "c": 3}, {"a": 3, "b": 4}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?((a == `3` && b == `4`)) || b == `2`]",
-        "result": [{"a": 1, "b": 2, "c": 3}, {"a": 3, "b": 4}]
+          "result": [{"a": 1, "b": 2, "c": 3}, {"a": 3, "b": 4}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?a == `3` && (b == `4` || b == `2`)]",
-        "result": [{"a": 3, "b": 4}]
+          "result": [{"a": 3, "b": 4}],
+             "is_deeply": 1
       },
       {
         "expression": "foo[?a == `3` && ((b == `4` || b == `2`))]",
-        "result": [{"a": 3, "b": 4}]
+          "result": [{"a": 3, "b": 4}],
+             "is_deeply": 1
       }
     ]
   },
@@ -388,7 +422,8 @@
       {
         "comment": "Verify precedence of or/and expressions",
         "expression": "foo[?a == `1` || b ==`2` && c == `5`]",
-        "result": [{"a": 1, "b": 2, "c": 3}]
+          "result": [{"a": 1, "b": 2, "c": 3}],
+             "is_deeply": 1
       },
       {
         "comment": "Parentheses can alter precedence",
@@ -398,7 +433,8 @@
       {
         "comment": "Not expressions combined with and/or",
         "expression": "foo[?!(a == `1` || b ==`2`)]",
-        "result": [{"a": 3, "b": 4}]
+          "result": [{"a": 3, "b": 4}],
+             "is_deeply": 1
       }
     ]
   },
@@ -423,23 +459,23 @@
         "expression": "foo[?key]",
         "result": [
           {"key": true}, {"key": [0]}, {"key": {"a": "b"}},
-          {"key": 0}, {"key": 1}
-        ]
+            {"key": 0}, {"key": 1}],
+            "is_deeply": 1
       },
       {
         "comment": "Unary not filter expression",
         "expression": "foo[?!key]",
         "result": [
           {"key": false}, {"key": []}, {"key": {}},
-          {"key": null}, {"notkey": true}
-        ]
+            {"key": null}, {"notkey": true}],
+             "is_deeply": 1
       },
       {
         "comment": "Equality with null RHS",
         "expression": "foo[?key == `null`]",
         "result": [
-          {"key": null}, {"notkey": true}
-        ]
+            {"key": null}, {"notkey": true}],
+             "is_deeply": 1
       }
     ]
   },

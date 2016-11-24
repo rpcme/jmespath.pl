@@ -32,6 +32,7 @@ foreach my $file ( @files ) {
     my $text = JSON->new->allow_nonref->space_after->encode($block->{ given });
     foreach my $case ( @{ $block->{cases} } ) {
       my $comment = exists $case->{comment} ? $case->{ comment } : $case->{ expression };
+      my $deeply = exists $case->{is_deeply} ? $case->{is_deeply} : 0;
       my $msg = $n . ' case ' . $cn . ' : ' . $comment;
 
       my $expr   = sq(JSON->new->allow_nonref->space_after->encode($case->{expression}));
@@ -49,7 +50,14 @@ foreach my $file ( @files ) {
       else {
         try {
           my $r = Jmespath->search($expr, $text);
-          is $r, $expect, $msg;
+          if ($deeply) {
+            $expect = $case->{result};
+            $r = JSON->new->allow_nonref->space_after->decode($r);
+            is_deeply $r, $expect, $msg;
+          }
+          else {
+            is $r, $expect, $msg;
+          }
         } catch {
            fail($comment . ' : ' . 'EXCEPTION MESSAGE: ' . $_->message )
         };

@@ -10,7 +10,8 @@
                 "result": {
                     "foo": [{"name": "a"}, {"name": "b"}],
                     "bar": {"baz": "qux"}
-                }
+                },
+                "is_deeply": 1
             },
             {
                 "expression": "@.bar",
