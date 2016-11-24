@@ -288,7 +288,6 @@ sub visit_multi_select_hash {
   foreach my $child (@{$node->{children}}) {
     my $result = $self->visit($child, $value);
     return undef if not defined $child->{value};
-    return undef if not defined $result;
     %merged = (%merged,(  $child->{value} , $result ));
   }
   return \%merged;
