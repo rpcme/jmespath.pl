@@ -11,10 +11,12 @@ has expected_types => ( is => 'ro' );
 sub to_string {
   my ( $self ) = @_;
 
-  return 'In function ' . $self->{function_name} . '(), ' .
-    'invalid type for value: ' $self->{current_value} . ', ' .
-    'expected one of: ' $self->{expected_types} . ', ' .
-    'received: "' $self->{actual_type} .'"';
+  return 'In function ' .
+    $self->{function_name} . '(), invalid type for value: ' .
+    $self->{current_value} . ', expected one of: ' .
+    $self->{expected_types} . ', received: "' .
+    $self->{actual_type} . '"';
 }
 
 no Moose;
+1;
