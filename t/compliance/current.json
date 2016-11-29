@@ -1,26 +1,50 @@
 [
     {
-        "given": {
-            "foo": [{"name": "a"}, {"name": "b"}],
-            "bar": {"baz": "qux"}
-        },
         "cases": [
             {
                 "expression": "@",
+                "is_deeply": 1,
                 "result": {
-                    "foo": [{"name": "a"}, {"name": "b"}],
-                    "bar": {"baz": "qux"}
-                },
-                "is_deeply": 1
+                    "bar": {
+                        "baz": "qux"
+                    },
+                    "foo": [
+                        {
+                            "name": "a"
+                        },
+                        {
+                            "name": "b"
+                        }
+                    ]
+                }
             },
             {
                 "expression": "@.bar",
-                "result": {"baz": "qux"}
+                "is_deeply": 1,
+                "result": {
+                    "baz": "qux"
+                }
             },
             {
                 "expression": "@.foo[0]",
-                "result": {"name": "a"}
+                "is_deeply": 1,
+                "result": {
+                    "name": "a"
+                }
             }
-        ]
+        ],
+        "given": {
+            "bar": {
+                "baz": "qux"
+            },
+            "foo": [
+                {
+                    "name": "a"
+                },
+                {
+                    "name": "b"
+                }
+            ]
+        }
     }
 ]
