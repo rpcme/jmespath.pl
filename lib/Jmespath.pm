@@ -1,20 +1,21 @@
 package Jmespath;
-#require Exporter;
+use strict;
+use warnings;
 use Jmespath::Parser;
 use Jmespath::Visitor;
 use JSON qw(encode_json decode_json);
 use Try::Tiny;
 use v5.14;
 our $VERSION = '0.01';
-#our $EXPORT = qw(compile search);
 our $VERBOSE = 0;
 use utf8;
+use Encode;
 
 sub compile {
   my ( $class, $expression ) = @_;
   print __PACKAGE__ . ' ' . __LINE__ . " compile $expression\n" if $Jmespath::VERBOSE;
   try {
-    return Jmespath::Parser->new->parse( $expression );
+    return Jmespath::Parser->new->parse( Encode::encode_utf8($expression) );
   } catch {
     say $_->stringify;
     exit(1)
@@ -26,33 +27,26 @@ sub search {
   my ($result);
   try {
     $result = Jmespath::Parser->new->parse( $expression )
-      ->search( JSON->new->allow_nonref->utf8->decode( $data ), $options );
+      ->search( $data, $options );
   } catch {
     $_->throw;
   };
-  return 'null' if not defined $result;
+  return $result if not defined $result;
 
   # JSON block result
   if ( ( ref ($result) eq 'HASH'  ) or
        ( ref ($result) eq 'ARRAY' ) ) {
     try {
-      $result = JSON->new->utf8->allow_nonref->space_after->encode( $result );
+      $result = JSON->new->utf8(1)->allow_nonref->space_after->encode( $result );
       return $result;
     } catch {
       Jmespath::ValueException->new( message => "cannot encode" )->throw;
     };
   }
 
-  # Boolean result
-  return 'false' if $result eq '0';
-  return 'true' if $result eq '1';
-  return $result if $result eq 'false' or $result eq 'true';
-
-  # Numeric result
   if ( $result =~ /[0-9]+/ ) {
     return $result;
   }
-
 
   # Unquoted string result
   if ( $ENV{JP_UNQUOTED} == 0 or
