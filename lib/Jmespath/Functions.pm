@@ -5,8 +5,11 @@ use parent 'Exporter';
 use JSON;
 use Try::Tiny;
 use POSIX qw(ceil floor);
+use Jmespath::Expression;
 use Jmespath::ValueException;
-use Scalar::Util qw(looks_like_number);
+use Jmespath::JMESPathTypeException;
+use Scalar::Util qw(looks_like_number isdual blessed);
+use Sort::Naturally;
 use v5.12;
 
 our @EXPORT = qw( jp_abs
@@ -48,18 +51,20 @@ our @EXPORT = qw( jp_abs
 # a signed integer.
 sub jp_abs {
   my ( $arg ) = @_;
- Jmespath::ValueException
-      ->new({ message => 'abs() requires one argument' })
-      ->throw
-      if not defined $arg;
   Jmespath::ValueException
       ->new({ message => 'abs() requires one argument' })
       ->throw
-      if scalar @_ > 1;
+      if not defined $arg or scalar(@_) != 1;
+
+  Jmespath::ValueException
+      ->new({ message => 'contains() illegal boolean value' })
+      ->throw
+      if JSON::is_bool($arg);
+
   Jmespath::ValueException
       ->new({ message => 'Not a number: [' . $arg  . ']'})
       ->throw
-      if $arg !~ /^[-]{0,1}[0-9]+$/;
+      if not looks_like_number($arg);
   return abs( $arg );
 }
 
@@ -79,19 +84,19 @@ sub jp_avg {
 sub jp_contains {
   my ( $subject, $search ) = @_;
   Jmespath::ValueException
-      ->new({ message => 'contains() cannot be passed booleans' })
+      ->new({ message => 'contains() illegal boolean value' })
       ->throw
-      if $subject eq 'true' or $subject eq 'false';
+      if JSON::is_bool($subject);
   if ( ref $subject eq 'ARRAY' ) {
     foreach (@$subject) {
-      return 'true' if ( $_ eq $search ); #must be exact string match
+      return JSON::true if ( $_ eq $search ); #must be exact string match
     }
-    return 'false';
+    return JSON::false;
   }
   elsif ( ref $subject eq '' ) { # straight string
-    return 'true' if $subject =~ /$search/;
+    return JSON::true if $subject =~ /$search/;
   }
-  return 'false';
+  return JSON::false;
 }
 
 
@@ -114,24 +119,34 @@ sub jp_ends_with {
       ->new({ message => 'ends_with() allows strings only' })
       ->throw
       if looks_like_number($prefix);
-  return 'true' if $subject =~ /$prefix$/;
-  return 'false';
+  return JSON::true if $subject =~ /$prefix$/;
+  return JSON::false;
 }
 
 sub jp_eq {
   my ($left, $right) = @_;
-  return JSON::false if not defined $left;
-  return JSON::false if not defined $right;
+#  print "jp_eq: left // $left : right // $right\n";
+  return JSON::true if not defined $left and not defined $right;
+  return JSON::false if not defined $left or not defined $right;
+  if (not defined blessed($left) or not defined blessed($right)) {
   if (looks_like_number($left) and
       looks_like_number($right)) {
     return JSON::true if $left == $right;
-    return JSON::false;
   }
-  if (not looks_like_number($left) and
+  elsif (not looks_like_number($left) and
       not looks_like_number($right)) {
     return JSON::true if $left eq $right;
-    return JSON::false;
   }
+  }
+  else {
+    if (blessed($left) eq 'JSON::PP::Boolean' and blessed($right) eq 'JSON::PP::Boolean') {
+      return JSON::true if $left eq $right;
+      return JSON::false;
+    }
+  }
+#  return JSON::false if blessed($left) eq 'JSON::PP::Boolean' or blessed($right) eq 'JSON::PP::Boolean';
+
+  
   # return JSON::false if not looks_like_number($left);
   # return JSON::false if not looks_like_number($right);
   # return JSON::true if $left == $right;
@@ -161,60 +176,79 @@ sub jp_floor {
 
 sub jp_gt {
   my ($left, $right) = @_;
-  return JSON::false if not looks_like_number($left);
-  return JSON::false if not looks_like_number($right);
+  # According to the JMESPath Specification, this function returns
+  # undef if the variants are not numbers.
+  return undef if not looks_like_number($left);
+  return undef if not looks_like_number($right);
   return JSON::true if $left > $right;
   return JSON::false;
 }
 
 sub jp_gte {
   my ($left, $right) = @_;
-  return JSON::false if not looks_like_number($left);
-  return JSON::false if not looks_like_number($right);
+  # According to the JMESPath Specification, this function returns
+  # undef if the variants are not numbers.
+  return undef if not looks_like_number($left);
+  return undef if not looks_like_number($right);
   return JSON::true if $left >= $right;
   return JSON::false;
 }
 
 sub jp_lt {
   my ($left, $right) = @_;
-  return JSON::false if not looks_like_number($left);
-  return JSON::false if not looks_like_number($right);
+  # According to the JMESPath Specification, this function returns
+  # undef if the variants are not numbers.
+  return undef if not looks_like_number($left);
+  return undef if not looks_like_number($right);
   return JSON::true if $left < $right;
   return JSON::false;
 }
 
 sub jp_lte {
   my ($left, $right) = @_;
-  return JSON::false if not looks_like_number($left);
-  return JSON::false if not looks_like_number($right);
+  # According to the JMESPath Specification, this function returns
+  # undef if the variants are not numbers.
+  return undef if not looks_like_number($left);
+  return undef if not looks_like_number($right);
   return JSON::true if $left <= $right;
   return JSON::false;
 }
 
 sub jp_join {
   my ( $glue, $array ) = @_;
+#  use Data::Dumper;
+#  print "glue: $glue\n";
+#  print "array:\n";
+#  use Data::Dumper;
+#  print Dumper $array;
+#  $glue =~ s/\s+$//;
+#  $glue =~ s/^\s+//;
   Jmespath::ValueException
       ->new({ message => 'Not an array: ' . $array })
       ->throw
       if ref $array ne 'ARRAY';
+  Jmespath::ValueException
+      ->new({ message => 'Glue not a string: ' . $glue })
+      ->throw
+      if jp_type($glue) ne 'string';
 
   foreach (@$array) {
     Jmespath::ValueException
-        ->new({message =>'Cannot join boolean'})
+        ->new({message => "Cannot join " . jp_type($_) . " $_"})
         ->throw
-        if ref $_ eq 'JSON::Boolean';
+        if jp_type($_) ne 'string';
   }
-  return '"' . join ( $glue, @$array ) . '"';
+  return  join ( $glue, @$array );
 }
 
 
 sub jp_keys {
   my ( $obj ) = @_;
   Jmespath::ValueException
-      ->new({ message => 'keys() takes single JSON object as arg' })
+      ->new({ message => 'array keys(object obj) argument illegal' })
       ->throw
       if ref $obj ne 'HASH';
-  my @objkeys = sort keys %$obj;
+  my @objkeys = keys %$obj;
   return \@objkeys;
 }
 
@@ -222,71 +256,159 @@ sub jp_length {
   my ( $subject ) = @_;
   my ( $length ) = 0;
 
-  if ( ref $subject eq '' ) {    # simple scalar
-    if ( substr($subject, 0, 1) eq qq/"/ and substr($subject, -1, 1) eq qq/"/ ) {
-      $subject = substr $subject, 1, -1;       # quoted string remove quotes
-      #Jmespath::ValueException->throw({ message => 'Cannot call length on unquoted string' });
-    }
-    return length $subject;
-  }
-  elsif ( ref $subject eq 'ARRAY' ) {
-    return scalar @$subject;
-  }
-  elsif ( ref $subject eq 'HASH' ) {
-    return scalar keys %$subject;
-  }
-
-  return $length;
+  Jmespath::ValueException
+      ->new({ message => 'number length(string|array|object subject) argument illegal' })
+      ->throw
+      if JSON::is_bool($subject) or looks_like_number($subject);
+  return scalar @$subject if ref $subject eq 'ARRAY';
+  return scalar keys %$subject if ref $subject eq 'HASH';
+  return length $subject;
 }
 
-sub jp_map { }
+sub jp_map {
+  my ($expr, $elements) = @_;
+#  return [] if ref $elements ne 'ARRAY';
+  Jmespath::ValueException
+      ->new({ message => 'array[any] map(expression->any->any expr, array[any] elements) undefined elements' })
+      ->throw
+      if not defined $elements;
+  my $result = [];
+  foreach my $element (@$elements) {
+    use Data::Dumper;
+  Jmespath::ValueException
+      ->new({ message => 'array[any] map(expression->any->any expr, array[any] elements) undefined elements' })
+      ->throw
+      if not defined $element;
+#    print Dumper $expr;
+    my $res = $expr->visit($expr->{expression}, $element);
+    
+#    print Dumper $element;
+#    print Dumper $res;
+    push @$result, $res;
+  }
+  return $result;
+}
 
 # must be all numbers or strings in order to work
+# perhaps consider List::Util max()
 sub jp_max {
   my ( $collection ) = @_;
-  return undef if not defined $collection;
-  return undef if scalar( @$collection ) == 0;
-  my $found_type = @{$collection}[0] =~ /^[0-9]+$/ ? 'int' : 'str';
-  foreach ( @$collection ) {
-    Jmespath::ValueException->new({ message => 'max(): Boolean is invalid' } )->throw
-        if ref $_ eq 'JSON::Boolean';
-    Jmespath::ValueException->new({ message => 'max(): null is invalid' } )->throw
-        if not defined $_;
-    my $typ = $_ =~ /^[0-9]+$/ ? 'int' : 'str';
-    Jmespath::ValueException->new({ message => 'max(): mixed int and str disallowed' })->throw
-        if $found_type ne $typ;
+  Jmespath::ValueException->new({message=>'max(string|number array) argument not an array'})->throw
+      if ref $collection ne 'ARRAY';
+  my ($current_type, $current_max);
+  foreach my $arg (@$collection) {
+
+    my $type = jp_type($arg);
+    $current_type = $type if not defined $current_type;
+    $current_max = $arg if not defined $current_max;
+
+    Jmespath::ValueException
+        ->new({message=>"max(string|number array) mixed types not allowed"})
+        ->throw
+        if $type ne $current_type;
+
+    Jmespath::ValueException
+        ->new({message=>"max(string|number array) $type not allowed"})
+        ->throw
+        if $type ne 'number' and $type ne 'string';
+
+    if (looks_like_number($arg) and $arg > $current_max) { $current_max = $arg; }
+    if (not looks_like_number($arg) and $arg gt $current_max) { $current_max = $arg; }
+    $current_type = $type;
   }
-  my @sorted = sort( @$collection );
-  return pop @sorted;
+  return $current_max;
 }
 
 sub jp_max_by {
   my ($array, $expref) = @_;
-  my $keyfunc = _create_key_func($expref, ['number', 'string'], 'min_by');
-  return jp_keyed_max($array, $keyfunc);
+  my $values = {};
+  foreach my $item (@$array) {
+    my $result = $expref->visit($expref->{expression}, $item);
+    Jmespath::ValueException
+        ->new({message=>"min(string|number array) mixed types not allowed"})
+        ->throw
+        if not defined $result or JSON::is_bool($result);
+    $values->{ $result } = $item;
+  }
+  my @keyed_on = keys %$values;
+  return $values->{ jp_max( \@keyed_on ) };
 }
 
 # this needs to be a comparison function based on the "type" that is
 # being sorted so the correct min/max will be taken by type.
 
-sub jp_keyed_max {}
+sub jp_keyed_max {
+  my ($array, $keyfunc) = @_;
+  return $array;
+}
 
 sub _create_key_func {
   my ($expref, $allowed_types, $function_name) = @_;
   my $keyfunc = sub {
-    my $result = $expref->visit($expref->expression, shift);
+    my $result = $expref->visit($expref->{expression}, shift);
   };
   return $keyfunc;
 }
 
-sub jp_merge {}
-sub jp_min {}
-sub jp_min_by {}
+sub jp_merge {
+  my @objects = @_;
+  my $merged = {};
+  foreach my $object (@objects) {
+    Jmespath::ValueException
+        ->new({message=>"object merge([object *argument, [, object $...]])"})
+        ->throw
+        if ref $object ne 'HASH';
+    foreach my $key (keys %$object) {
+      $merged->{$key} = $object->{$key};
+    }
+  }
+  return $merged;
+}
+
+sub jp_min {
+  my ($collection) = @_;
+  Jmespath::ValueException->new({message=>'min(string|number array) argument not an array'})->throw
+      if ref $collection ne 'ARRAY';
+  my ($current_type, $current_min);
+  foreach my $arg (@$collection) {
+
+    my $type = jp_type($arg);
+    $current_type = $type if not defined $current_type;
+    $current_min = $arg if not defined $current_min;
+
+    Jmespath::ValueException->new({message=>"min(string|number array) mixed types not allowed"})->throw
+        if $type ne $current_type;
+
+    Jmespath::ValueException->new({message=>"min(string|number array) $type not allowed"})->throw
+        if $type ne 'number' and $type ne 'string';
+
+    if (looks_like_number($arg) and $arg < $current_min) { $current_min = $arg; }
+    if (not looks_like_number($arg) and $arg lt $current_min) { $current_min = $arg; }
+    $current_type = $type;
+  }
+  return $current_min;
+}
+
+sub jp_min_by {
+  my ($array, $expref) = @_;
+  my $values = {};
+  foreach my $item (@$array) {
+    my $result = $expref->visit($expref->{expression}, $item);
+    Jmespath::ValueException
+        ->new({message=>"min(string|number array) mixed types not allowed"})
+        ->throw
+        if not defined $result or JSON::is_bool($result);
+    $values->{ $result } = $item;
+  }
+  my @keyed_on = keys %$values;
+  return $values->{ jp_min( \@keyed_on ) };
+}
 
 sub jp_ne {
   my ($left, $right) = @_;
-  return JSON::false if not defined $left;
-  return JSON::false if not defined $right;
+  return JSON::false if not defined $left and not defined $right;
+  return JSON::true if not defined $left;
+  return JSON::true if not defined $right;
   if (looks_like_number($left) and
       looks_like_number($right)) {
     return JSON::true if $left != $right;
@@ -305,36 +427,183 @@ sub jp_ne {
 #
 sub jp_not_null {
   my @arguments = @_;
+  Jmespath::ValueException
+      ->new({ message => 'not_null() requires at least one argument' })
+      ->throw
+      if not @arguments;
+  my $result = [];
   foreach my $argument (@arguments) {
+    next if not defined $argument;
     return $argument if defined $argument;
   }
+  return undef;
 }
 
 sub jp_reverse {
-  my ( $self, $argument ) = @_;
-  return reverse $argument;
+  my $arg = shift;
+  
+  if (ref $arg eq 'ARRAY') {
+    my $result = [];
+    for ( my $idx = scalar @$arg - 1; $idx >= 0; $idx--) {
+      push @$result, @$arg[$idx];
+    }
+    return $result;
+  }
+  elsif (ref $arg eq '') {
+    return reverse $arg;
+  }
+  return undef;
 }
 
-sub jp_sort {}
+sub jp_sort {
+  my $list = shift;
+  Jmespath::ValueException
+      ->new({ message=>'array sort(array[number]|array[string] $list) illegal argument' })
+      ->throw
+      if not defined $list or ref $list ne 'ARRAY';
+  my $current_type;
+  foreach (@$list) {
+    Jmespath::ValueException
+        ->new({ message=>'array sort(array[number]|array[string] $list) illegal argument' })
+        ->throw
+        if ref $_ ne '';
+    $current_type = jp_type($_) if not defined $current_type;
+    Jmespath::ValueException
+        ->new({ message=>'array sort(array[number]|array[string] $list) illegal argument' })
+        ->throw
+        if $current_type ne 'string' and $current_type ne 'number';
+    Jmespath::ValueException
+        ->new({ message=>'array sort(array[number]|array[string] $list) mixed types' })
+        ->throw
+        if $current_type ne jp_type($_);
+  }
 
-sub jp_sort_by {}
+  my @result = sort { $a cmp $b } @$list ;
+  return \@result;
+}
 
-sub jp_starts_with {}
+sub jp_sort_by {
+  my ($array, $expref) = @_;
+  my $values = {};
+  my $keyed = [];
+  my $current_type;
+  # create "symbol map" for items
+#  use Data::Dumper;
+#  print Dumper $expref;;
+  Jmespath::ValueException
+      ->new({message=>"sort_by(array elements, expression->number|expression->string expr) undefined expr not allowed"})
+      ->throw
+      if not defined $expref;
+  for (my $idx = 0; $idx < scalar @$array; $idx++) {
+    $values->{$idx} = @{$array}[$idx];
+    my $evaled = $expref->visit($expref->{expression}, @{$array}[$idx]);
+    $current_type = jp_type($evaled) if not defined $current_type;
+    
+    Jmespath::ValueException
+        ->new({message=>"sort_by(array elements, expression->number|expression->string expr) undefined expr not allowed"})
+        ->throw
+        if jp_type($evaled) ne $current_type;
+    Jmespath::ValueException
+        ->new({message=>"min(string|number array) mixed types not allowed"})
+        ->throw
+        if not defined $evaled or JSON::is_bool($evaled);
+    push @$keyed, [ $evaled, $idx ];
+  }
+  my @sorted = sort { $a->[0] cmp $b->[0] } @$keyed;
+  # my @sorted = map { $_->[0] }
+  #   sort { $a->[0] <=> $b->[0] || $a->[0] cmp $b->[0] } map { [$_, /=(\d+)/, CORE::fc($_)] } @$keyed;
+
+  
+  # foreach my $item (@$array) {
+  #   my $result = $expref->visit($expref->{expression}, $item)w;
+  #   $values->{ $result } = $item;
+  # }
+  # my @keyed_on = keys %$values;
+  # my $sorted = jp_sort( \@keyed_on );
+  my $res = [];
+  foreach my $item (@sorted) {
+    push @$res, $values->{$item->[1]};
+  }
+  return $res;
+}
+
+sub jp_starts_with {
+  my ($subject, $prefix) = @_;
+  Jmespath::ValueException->new({message=>'starts_with(subject, prefix) requires two arguments'})->throw
+      if not defined $subject or not defined $prefix;
+  Jmespath::ValueException->new({message=>'starts_with(subject, prefix) not a string'})->throw
+      if looks_like_number($prefix);
+  return JSON::true if $subject =~ /^$prefix/;
+  return JSON::false;
+}
 
 sub jp_sum {
   my $data = shift;
   my $result = 0;
   foreach my $value (@$data) {
+    Jmespath::ValueException
+        ->new({message=>'sum(numbers) member not a number'})
+        ->throw
+        if not looks_like_number($value);
     $result += $value;
   }
   return $result;
 }
 
-sub jp_to_array {}
-sub jp_to_string {}
-sub jp_to_number {}
-sub jp_type {}
-sub jp_values {}
+sub jp_to_array {
+  my ($arg) = shift;
+  return [$arg] if JSON::is_bool($arg);
+  return [$arg] if ref $arg eq 'HASH';
+  return $arg   if ref $arg eq 'ARRAY';
+#  return [$arg] if ref $arg eq '';
+  return [$arg];
+}
+
+sub jp_to_string {
+  my ($arg) = @_;
+  $arg = JSON->new->pretty(0)->allow_nonref->encode( $arg )
+    if jp_type($arg) eq 'object'
+    or jp_type($arg) eq 'array';
+  $arg = qq{$arg}
+    if jp_type($arg) eq 'number';
+  return $arg;
+}
+
+sub jp_to_number {
+  my ($arg) = @_;
+
+  return undef if not looks_like_number($arg);
+  return undef if JSON::is_bool($arg);
+  $arg += 0; # remove trailing 0's
+  return $arg;
+}
+
+sub jp_type {
+  my ($item) = @_;
+  return 'null' if not defined $item;
+  if (JSON::is_bool($item)) { return 'boolean'; }
+  if (looks_like_number($item)) { return 'number'; }
+  if (ref($item) eq 'ARRAY') { return 'array';}
+  if (ref($item) eq 'HASH' ) {return 'object';}
+  return 'string';
+}
+
+sub jp_values {
+  my $obj = shift;
+  Jmespath::ValueException
+      ->new({message =>'array values(object $obj): illegal argument'})
+      ->throw
+      if ref $obj ne 'HASH';
+  #  use Data::Dumper;
+ # print "in: jp_values\n";
+ # print Dumper $ref;
+  my $result = [];
+  foreach my $item (keys %$obj) {
+    push @$result, $obj->{$item};
+  }
+#  print Dumper $result;
+  return $result;
+}
 
 1;
 
