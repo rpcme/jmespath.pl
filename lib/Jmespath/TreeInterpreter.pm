@@ -66,7 +66,6 @@ sub visit_subexpression {
 
 sub visit_field {
   my ($self, $node, $value) = @_;
-
   try {
     return $value->{$node->{value}};
   } catch {
@@ -127,7 +126,8 @@ sub visit_filter_projection {
   my $comparator_node = @{ $node->{children} }[2];
   my $collected = [];
   foreach my $element (@$base) {
-    if ( $self->_is_true($self->visit($comparator_node, $element))) {
+    my $cnode_result = $self->visit($comparator_node, $element);
+    if ( $self->_is_true($cnode_result)) {
       my $current = $self->visit(@{$node->{children}}[1], $element);
       if (defined $current) {
         push  @{$collected}, $current;
@@ -160,7 +160,7 @@ sub visit_identity {
   return undef if not defined $value;
   # SHEER NEGATIVE ENERGY HACKERY - FORCE NUMBERS TO BE NUMBERS
   # THANK YOU JSON.PM
-  $value = 1 * $value if $value =~ /^[0-9]+$/;
+  $value = 1 * $value if $value =~ /^[-][0-9]+$/;
   return $value;
 }
 
@@ -278,12 +278,9 @@ sub visit_literal {
   return $node->{value};
 }
 
-# XXX Change sub suffix to 'hash'
 sub visit_multi_select_hash {
   my ($self, $node, $value) = @_;
   return undef if not defined $value;
-  # XXX We should change this to use _hash_cls which enables the user
-  # to choose the data structure method
   my %merged;
   foreach my $child (@{$node->{children}}) {
     my $result = $self->visit($child, $value);
@@ -329,11 +326,8 @@ sub visit_and_expression {
 sub visit_not_expression {
   my ($self, $node, $value) = @_;
   my $original_result = $self->visit(@{$node->{children}}[0], $value);
-  my $result = $self->_is_true($original_result);
-  $result = $result == 0 ? 1 : 0;
-
-  return 'true' if $result == 1;
-  return 'false';
+  return JSON::true if $self->_is_false($original_result) == 1;
+  return JSON::false;
 }
 
 sub visit_pipe {
@@ -349,7 +343,6 @@ sub visit_projection {
   my ($self, $node, $value) = @_;
   my $base = $self->visit(@{$node->{children}}[0], $value);
   return undef if ref($base) ne 'ARRAY';
-#  return undef if scalar @$base == 0;
 
   my $collected = [];
   foreach my $element (@$base) {
@@ -380,16 +373,12 @@ sub visit_value_projection {
 sub _is_false {
   my ($self, $value) = @_;
   return 1 if not defined $value;
-#  return 1 if looks_like_number($value) and $value == 0;
-  return 1 if $value eq 'false';
-  return 0 if $value eq 'true';
+  return 1 if JSON::is_bool($value) and $value == JSON::false;
+  return 0 if JSON::is_bool($value) and $value == JSON::true;
+  return 1 if ref($value) eq 'ARRAY'  and scalar @$value == 0;
+  return 1 if ref($value) eq 'HASH'   and scalar keys %$value == 0;
+  return 1 if ref($value) eq 'SCALAR' and $value eq '';
   return 1 if $value eq '';
-  return 1 if JSON::is_bool($value) and $value == 0;
-  return 0 if JSON::is_bool($value) and $value == 1;
-  return 1 if ( ref($value) eq 'SCALAR' and not $value );
-  return 1 if ( ref($value) eq 'SCALAR' and $value eq '' );
-  return 1 if ( ref($value) eq 'ARRAY'  and scalar @$value == 0 );
-  return 1 if ( ref($value) eq 'HASH'   and scalar keys %$value == 0 );
   return 0;
 }
 
