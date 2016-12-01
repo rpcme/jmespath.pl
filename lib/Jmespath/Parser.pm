@@ -11,7 +11,7 @@ use Jmespath::IncompleteExpressionException;
 
 use List::Util qw(any);
 use Try::Tiny;
-no strict 'refs';
+#no strict 'refs';
 
 $| = 1;
 my $BINDING_POWER = { 'eof' => 0,
@@ -141,7 +141,7 @@ sub _expression {
     # Advance the token index
     $self->_advance;
 
-    my $nud_function = '_token_nud_' . $left_token->{type};
+    my $nud_function = \&{'_token_nud_' . $left_token->{type}};
     if ( not exists &$nud_function ) { $self->_error_nud_token($left_token); }
     trace("_expression: nud_function: $nud_function");
     trace("_expression: left_token:", $left_token);
@@ -153,7 +153,7 @@ sub _expression {
     while ( $binding_power < $BINDING_POWER->{$current_token} ) {
       trace("_expression: current_token: $current_token");
       
-      my $led = '_token_led_' . $current_token;
+      my $led = \&{'_token_led_' . $current_token};
       trace("_expression: led: $led");
       #    my $res = &$led($self, $left);
       if (not exists &$led) {

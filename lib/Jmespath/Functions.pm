@@ -178,8 +178,8 @@ sub jp_gt {
   my ($left, $right) = @_;
   # According to the JMESPath Specification, this function returns
   # undef if the variants are not numbers.
-  return undef if not looks_like_number($left);
-  return undef if not looks_like_number($right);
+  return if not looks_like_number($left);
+  return if not looks_like_number($right);
   return JSON::true if $left > $right;
   return JSON::false;
 }
@@ -188,8 +188,8 @@ sub jp_gte {
   my ($left, $right) = @_;
   # According to the JMESPath Specification, this function returns
   # undef if the variants are not numbers.
-  return undef if not looks_like_number($left);
-  return undef if not looks_like_number($right);
+  return if not looks_like_number($left);
+  return if not looks_like_number($right);
   return JSON::true if $left >= $right;
   return JSON::false;
 }
@@ -198,8 +198,8 @@ sub jp_lt {
   my ($left, $right) = @_;
   # According to the JMESPath Specification, this function returns
   # undef if the variants are not numbers.
-  return undef if not looks_like_number($left);
-  return undef if not looks_like_number($right);
+  return if not looks_like_number($left);
+  return if not looks_like_number($right);
   return JSON::true if $left < $right;
   return JSON::false;
 }
@@ -208,8 +208,8 @@ sub jp_lte {
   my ($left, $right) = @_;
   # According to the JMESPath Specification, this function returns
   # undef if the variants are not numbers.
-  return undef if not looks_like_number($left);
-  return undef if not looks_like_number($right);
+  return if not looks_like_number($left);
+  return if not looks_like_number($right);
   return JSON::true if $left <= $right;
   return JSON::false;
 }
@@ -436,7 +436,7 @@ sub jp_not_null {
     next if not defined $argument;
     return $argument if defined $argument;
   }
-  return undef;
+  return;
 }
 
 sub jp_reverse {
@@ -452,7 +452,7 @@ sub jp_reverse {
   elsif (ref $arg eq '') {
     return reverse $arg;
   }
-  return undef;
+  return;
 }
 
 sub jp_sort {
@@ -572,8 +572,8 @@ sub jp_to_string {
 sub jp_to_number {
   my ($arg) = @_;
 
-  return undef if not looks_like_number($arg);
-  return undef if JSON::is_bool($arg);
+  return if not looks_like_number($arg);
+  return if JSON::is_bool($arg);
   $arg += 0; # remove trailing 0's
   return $arg;
 }

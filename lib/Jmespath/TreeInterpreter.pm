@@ -6,7 +6,7 @@ use Try::Tiny;
 use List::Util qw(unpairs);
 use Scalar::Util qw(looks_like_number);
 use JSON;
-no strict 'refs'; # Need this for sub dereferencing
+#no strict 'refs'; # Need this for sub dereferencing
 use Jmespath::Expression;
 use Jmespath::Functions;
 use Jmespath::AttributeException;
@@ -43,7 +43,7 @@ sub visit {
   my ($self, $node, $args) = @_;
   my $node_type = $node->{type};
   try {
-    my $method = 'visit_' . $node->{type};
+    my $method = \&{'visit_' . $node->{type}};
     return &$method( $self, $node, $args );
   } catch {
     $_->throw;
@@ -71,14 +71,14 @@ sub visit_field {
   } catch {
     # when the field cannot be looked up, then the spec defines the
     # return value as undef.
-    return undef;
+    return;
   }
 }
 
 sub visit_comparator {
   my ($self, $node, $value) = @_;
 
-  my $comparator_func = 'jp_' . $node->{value};
+  my $comparator_func = \&{'jp_' . $node->{value}};
   if ( not defined &$comparator_func ) {
     Jmespath::UnknownFunctionException
         ->new({ message => 'unknown-function: Unknown function: ' . $comparator_func })
@@ -101,8 +101,8 @@ sub visit_expref {
 
 sub visit_function_expression {
   my ($self, $node, $value) = @_;
-  my $function = 'jp_' . $node->{value};
-  if ( not exists &$function ) {
+  my $function = \&{'jp_' . $node->{value}};
+  if ( not defined &$function ) {
     Jmespath::UnknownFunctionException
         ->new({ message => 'unknown-function: Unknown function: ' . $function })
         ->throw;
@@ -120,8 +120,8 @@ sub visit_function_expression {
 sub visit_filter_projection {
   my ($self, $node, $value) = @_;
   my $base = $self->visit( @{$node->{children}}[0], $value);
-  return undef if ref($base) ne 'ARRAY';
-  return undef if scalar @$base == 0;
+  return if ref($base) ne 'ARRAY';
+  return if scalar @$base == 0;
 
   my $comparator_node = @{ $node->{children} }[2];
   my $collected = [];
@@ -141,7 +141,7 @@ sub visit_flatten {
   my ($self, $node, $value) = @_;
   my $base = $self->visit(@{$node->{'children'}}[0], $value);
 
-  return undef if ref($base) ne 'ARRAY';
+  return if ref($base) ne 'ARRAY';
 
   my $merged_list = [];
   foreach my $element (@$base) {
@@ -157,7 +157,7 @@ sub visit_flatten {
 
 sub visit_identity {
   my ($self, $node, $value) = @_;
-  return undef if not defined $value;
+  return if not defined $value;
   # SHEER NEGATIVE ENERGY HACKERY - FORCE NUMBERS TO BE NUMBERS
   # THANK YOU JSON.PM
   $value = 1 * $value if $value =~ /^[-][0-9]+$/;
@@ -166,7 +166,7 @@ sub visit_identity {
 
 sub visit_index {
   my ($self, $node, $value) = @_;
-  return undef if ref($value) ne 'ARRAY';
+  return if ref($value) ne 'ARRAY';
   try {
     return $value->[ $node->{value} ];
   } catch {
@@ -199,7 +199,7 @@ sub visit_slice {
   my $step = defined $node->{children}->[2] ? $node->{children}->[2] : 1;
 
   # Rule 07: If the element being sliced is not an array, the result is null.
-  return undef if ref($value) ne 'ARRAY';
+  return if ref($value) ne 'ARRAY';
 
   # Rule 06: If the given step is 0, an error MUST be raised.
   if ($step == 0) {
@@ -280,11 +280,11 @@ sub visit_literal {
 
 sub visit_multi_select_hash {
   my ($self, $node, $value) = @_;
-  return undef if not defined $value;
+  return if not defined $value;
   my %merged;
   foreach my $child (@{$node->{children}}) {
     my $result = $self->visit($child, $value);
-    return undef if not defined $child->{value};
+    return if not defined $child->{value};
     %merged = (%merged,(  $child->{value} , $result ));
   }
   return \%merged;
@@ -292,8 +292,8 @@ sub visit_multi_select_hash {
 
 sub visit_multi_select_list {
   my ($self, $node, $value) = @_;
-  return undef if not defined $value;
-  return undef if scalar @{$node->{children}} == 0;
+  return if not defined $value;
+  return if scalar @{$node->{children}} == 0;
 
   my $collected = [];
   foreach my $child ( @{$node->{children}}) {
@@ -342,7 +342,7 @@ sub visit_pipe {
 sub visit_projection {
   my ($self, $node, $value) = @_;
   my $base = $self->visit(@{$node->{children}}[0], $value);
-  return undef if ref($base) ne 'ARRAY';
+  return if ref($base) ne 'ARRAY';
 
   my $collected = [];
   foreach my $element (@$base) {
@@ -359,9 +359,9 @@ sub visit_value_projection {
   try {
     @basekeys = map { $base->{ $_ } } sort keys %$base ;
   } catch {
-    return undef;
+    return;
   };
-  return undef if scalar @basekeys == 0;
+  return if scalar @basekeys == 0;
   my $collected = [];
   foreach my $element (@basekeys) {
     my $current = $self->visit(@{$node->{children}}[1], $element);

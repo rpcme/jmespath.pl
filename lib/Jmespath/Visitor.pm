@@ -1,7 +1,7 @@
 package Jmespath::Visitor;
 use strict;
 use warnings;
-no strict 'refs';
+#no strict 'refs';
 
 sub new {
   my ($class) = @_;
