@@ -10,6 +10,7 @@ use Jmespath::ValueException;
 use Jmespath::JMESPathTypeException;
 use Scalar::Util qw(looks_like_number isdual blessed);
 use Sort::Naturally;
+#use Test::Deep::NoTest;
 use v5.12;
 
 our @EXPORT = qw( jp_abs
@@ -125,39 +126,45 @@ sub jp_ends_with {
 
 sub jp_eq {
   my ($left, $right) = @_;
-#  print "jp_eq: left // $left : right // $right\n";
-  return JSON::true if not defined $left and not defined $right;
+  return JSON::true  if not defined $left and not defined $right;
   return JSON::false if not defined $left or not defined $right;
-  if (not defined blessed($left) or not defined blessed($right)) {
+
+  # If $left or $right is a boolean, they both must be boolean
+  if (ref($left) eq 'JSON::PP::Boolean' or
+      ref($right) eq 'JSON::PP::Boolean') {
+    if (ref($left) eq 'JSON::PP::Boolean' and
+        ref($right) eq 'JSON::PP::Boolean' ) {
+      return JSON::true if $left == $right;
+      return JSON::false;
+    }
+    return JSON::false;
+  }
+
+  #If $left or $right is a HASH or ARRAY reference, they need to be
+  #compared because comparison of json objects must be handled.
+  if (ref($left) eq 'HASH' or ref($right) eq 'HASH') {
+    if (ref($left) eq 'HASH' and ref($right) eq 'HASH') {
+      return JSON::true if hashes_equal($left, $right);
+    }
+    return JSON::false;
+  }
+
+  if (ref($left) eq 'ARRAY' or ref($right) eq 'ARRAY') {
+    if (ref($left) eq 'ARRAY' and ref($right) eq 'ARRAY') {
+      return JSON::true if arrays_equal($left, $right);
+    }
+    return JSON::false;
+  }
+
   if (looks_like_number($left) and
       looks_like_number($right)) {
     return JSON::true if $left == $right;
   }
   elsif (not looks_like_number($left) and
-      not looks_like_number($right)) {
+         not looks_like_number($right)) {
     return JSON::true if $left eq $right;
   }
-  }
-  else {
-    if (blessed($left) eq 'JSON::PP::Boolean' and blessed($right) eq 'JSON::PP::Boolean') {
-      return JSON::true if $left eq $right;
-      return JSON::false;
-    }
-  }
-#  return JSON::false if blessed($left) eq 'JSON::PP::Boolean' or blessed($right) eq 'JSON::PP::Boolean';
-
-  
-  # return JSON::false if not looks_like_number($left);
-  # return JSON::false if not looks_like_number($right);
-  # return JSON::true if $left == $right;
   return JSON::false;
-  # if ( looks_like_number($left) and
-  #      looks_like_number($right) and
-  #      $left eq $right) {
-  #   return JSON::true;
-  # }
-  # return JSON::true if $left eq $right;
-  # return JSON::false;
 }
 
 sub jp_floor {
@@ -407,16 +414,39 @@ sub jp_min_by {
 sub jp_ne {
   my ($left, $right) = @_;
   return JSON::false if not defined $left and not defined $right;
-  return JSON::true if not defined $left;
-  return JSON::true if not defined $right;
+  return JSON::true if not defined $left or not defined $right;
+
+  if (ref($left) eq 'JSON::PP::Boolean' or
+      ref($right) eq 'JSON::PP::Boolean') {
+    if (ref($left) eq 'JSON::PP::Boolean' and
+        ref($right) eq 'JSON::PP::Boolean' ) {
+      return JSON::true if $left != $right;
+      return JSON::false;
+    }
+#    else {
+#      return JSON::false;
+#    }
+    return JSON::true;
+  }
+
+  if (ref($left) eq 'HASH' or ref($right) eq 'HASH') {
+    if (ref($left) eq 'HASH' and ref($right) eq 'HASH') {
+      return JSON::false if hashes_equal($left, $right);
+    }
+    return JSON::true;
+  }
+
+  if (ref($left) eq 'ARRAY' or ref($right) eq 'ARRAY') {
+    if (ref($left) eq 'ARRAY' and ref($right) eq 'ARRAY') {
+      return JSON::false if arrays_equal($left, $right);
+    }
+    return JSON::true;
+  }
+
+  
   if (looks_like_number($left) and
       looks_like_number($right)) {
     return JSON::true if $left != $right;
-    return JSON::false;
-  }
-  if (not looks_like_number($left) and
-      not looks_like_number($right)) {
-    return JSON::true if $left ne $right;
     return JSON::false;
   }
 
@@ -603,6 +633,66 @@ sub jp_values {
   }
 #  print Dumper $result;
   return $result;
+}
+
+
+sub arrays_equal {
+  my ( $a, $b ) = @_;
+  if ( scalar @$a != scalar @$b ) {
+    return 0;
+  }
+  for my $i ( 0 .. $#{$a} ) {
+    my $va = $a->[$i];
+    my $vb = $b->[$i];
+    if ( ref $va ne ref $vb ) {
+      return 0;
+    }
+    elsif ( ref $va eq '' and ref $vb eq '' and $va ne $vb) {
+      return 0;
+    }
+    elsif ( ref $va eq 'SCALAR' && $va ne $vb ) {
+      return 0;
+    }
+    elsif ( ref $va eq 'ARRAY' && !arrays_equal( $va, $vb ) ) {
+      return 0;
+    }
+    elsif ( ref $va eq 'HASH' && !hashes_equal( $va, $vb ) ) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+sub hashes_equal {
+  my ( $a, $b ) = @_;
+  if ( scalar( keys %$a ) != scalar( keys %$b ) ) {
+    return 0;
+  }
+  for my $k ( keys %$a ) {
+    if ( exists $b->{$k} ) {
+      my $va = $a->{$k};
+      my $vb = $b->{$k};
+      if ( ref $va ne ref $vb ) {
+        return 0;
+      }
+      elsif ( ref $va eq '' and ref $vb eq '' and $va ne $vb ) {
+        return 0;
+      }
+      elsif ( ref $va eq 'SCALAR' && $va ne $vb ) {
+        return 0;
+      }
+      elsif ( ref $va eq 'ARRAY' && !arrays_equal( $va, $vb ) ) {
+        return 0;
+      }
+      elsif ( ref $va eq 'HASH' && !hashes_equal( $va, $vb ) ) {
+        return 0;
+      }
+    }
+    else {
+      return 0;
+    }
+  }
+  return 1;
 }
 
 1;

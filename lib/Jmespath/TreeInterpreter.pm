@@ -139,9 +139,13 @@ sub visit_filter_projection {
 
   my $comparator_node = @{ $node->{children} }[2];
   my $collected = [];
+#  use Data::Dumper;
   foreach my $element (@$base) {
+#    print Dumper $comparator_node;
+#    print Dumper $element;
     my $cnode_result = $self->visit($comparator_node, $element);
-    if ( $self->_is_true($cnode_result)) {
+#    print "cnode_result: $cnode_result\n";
+    if ( $self->_is_true($cnode_result) ) {
       my $current = $self->visit(@{$node->{children}}[1], $element);
       if (defined $current) {
         push  @{$collected}, $current;
@@ -387,8 +391,10 @@ sub visit_value_projection {
 sub _is_false {
   my ($self, $value) = @_;
   return 1 if not defined $value;
-  return 1 if JSON::is_bool($value) and $value == JSON::false;
-  return 0 if JSON::is_bool($value) and $value == JSON::true;
+#  return 1 if JSON::is_bool($value) and $value == JSON::false;
+#  return 0 if JSON::is_bool($value) and $value == JSON::true;
+  return 1 if ref($value) eq 'JSON::PP::Boolean' and $value == JSON::false;
+  return 0 if ref($value) eq 'JSON::PP::Boolean' and $value == JSON::true;
   return 1 if ref($value) eq 'ARRAY'  and scalar @$value == 0;
   return 1 if ref($value) eq 'HASH'   and scalar keys %$value == 0;
   return 1 if ref($value) eq 'SCALAR' and $value eq '';
