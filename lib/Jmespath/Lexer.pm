@@ -40,8 +40,15 @@ sub stack {
 
 sub tokenize {
   my ( $self, $expression ) = @_;
-  $self->{ expression } = $expression if defined $expression;
-  $self->_initialize_for_expression($expression);
+  Jmespath::EmptyExpressionError->new->throw
+      if not defined $expression;
+  $self->{STACK} = [];
+  $self->{_position} = 0;
+  $self->{_expression} = $expression;
+  @{$self->{_chars}} = split //, $expression;
+  $self->{_current} = @{$self->{_chars}}[$self->{_position}];
+  $self->{_length} = length $expression;
+
   while (defined $self->{_current}) {
     if    ( any { $_ eq $self->{_current} } keys %$SIMPLE_TOKENS ) {
       push  @{$self->{STACK}},
@@ -217,17 +224,6 @@ sub _has_identifier {
   return 0;
 }
 
-sub _initialize_for_expression {
-  my ( $self, $expression ) = @_;
-  return Jmespath::EmptyExpressionError->new if not defined $expression;
-  $self->{STACK} = [];
-  $self->{_position} = 0;
-  $self->{_expression} = $expression;
-  @{$self->{_chars}} = split //, $expression;
-  $self->{_current} = @{$self->{_chars}}[$self->{_position}];
-  $self->{_length} = length $expression;
-}
-
 sub _next {
   my ($self) = @_;
   if ( $self->{_position} == $self->{_length} - 1 ) {
@@ -295,25 +291,20 @@ sub _consume_quoted_identifier {
   my $start = $self->{_position};
   my $lexeme = '"' . $self->_consume_until('"') . '"';
   my $error = "error consuming quoted identifier";
+  my $decoded_lexeme;
 
   try {
-    my $decoded_lexeme = JSON->new->allow_nonref->decode($lexeme);
-    my $token_len = $self->{ _position } - $start;
-    return { type => 'quoted_identifier',
-             value => $decoded_lexeme,
-             start => $start,
-             end   => $token_len,
-           };
+    $decoded_lexeme = JSON->new->allow_nonref->decode($lexeme);
   } catch {
     Jmespath::LexerException->new( lexer_position => $start,
                                    expression => $lexeme,
                                    message => $error )->throw;
   };
-
-#  if ( ( $self->{_position} - $start ) < 0 ) {
-    # TODO: what is this error really?  What does ValueError really give?
-#  }
-
+  return { type => 'quoted_identifier',
+           value => $decoded_lexeme,
+           start => $start,
+           end   => $self->{ _position } - $start,
+         };
 }
 
 sub _consume_raw_string_literal {
