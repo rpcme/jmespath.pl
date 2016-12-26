@@ -44,7 +44,7 @@ sub identity {
   return { type => 'identity', 'children' => [] };
 }
 
-sub index {
+sub index_of {
   my ($class, $index) = @_;
   return { type => 'index', value => $index, children => [] };
 }
@@ -89,7 +89,7 @@ sub not_expression {
   return { type => 'not_expression', children => [$expr] };
 }
 
-sub pipe {
+sub pipe_oper {
   my ($class, $left, $right) = @_;
   return { type => 'pipe', children => [$left, $right]};
 }

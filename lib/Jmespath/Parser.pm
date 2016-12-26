@@ -1,19 +1,15 @@
 package Jmespath::Parser;
 use strict;
 use warnings;
-
 use Jmespath;
 use Jmespath::Lexer;
 use Jmespath::Ast;
 use Jmespath::Visitor;
 use Jmespath::ParsedResult;
 use Jmespath::IncompleteExpressionException;
-
 use List::Util qw(any);
 use Try::Tiny;
-#no strict 'refs';
 
-$| = 1;
 my $BINDING_POWER = { 'eof' => 0,
                       'unquoted_identifier' => 0,
                       'quoted_identifier' => 0,
@@ -85,9 +81,9 @@ sub parse {
 sub _do_parse {
   my ( $self, $expression ) = @_;
   trace('_do_parse start $expression');
-
+  my $parsed;
   try {
-    return $self->_parse($expression);
+    $parsed = $self->_parse($expression);
   } catch {
     if ($_->isa('Jmespath::LexerException')) {
       $_->expression($self->{_expression});
@@ -105,6 +101,7 @@ sub _do_parse {
       $_->throw;
     }
   };
+  return $parsed;
 }
 
 sub _parse {
@@ -149,10 +146,10 @@ sub _expression {
     trace("_expression: left_ast:", $left_ast);
     my $current_token = $self->_current_token_type;
     trace("_expression: current_token_type: $current_token");
-    
+
     while ( $binding_power < $BINDING_POWER->{$current_token} ) {
       trace("_expression: current_token: $current_token");
-      
+
       my $led = \&{'_token_led_' . $current_token};
       trace("_expression: led: $led");
       #    my $res = &$led($self, $left);
@@ -276,7 +273,7 @@ sub _parse_index_expression {
   }
   else {
     #parse the syntax [number]
-    my $node = Jmespath::Ast->index($self->_lookahead_token(0)->{value});
+    my $node = Jmespath::Ast->index_of($self->_lookahead_token(0)->{value});
     $self->_advance;
     $self->_match('rbracket');
     return $node;
@@ -355,7 +352,7 @@ sub _token_led_dot {
 sub _token_led_pipe {
   my ($self, $left) = @_;
   my $right = $self->_expression( $BINDING_POWER->{ pipe } );
-  return Jmespath::Ast->pipe($left, $right);
+  return Jmespath::Ast->pipe_oper($left, $right);
 }
 
 sub _token_led_or {
@@ -715,6 +712,7 @@ sub trace {
       print Dumper $obj;
     }
   }
+  return;
 }
 
 
