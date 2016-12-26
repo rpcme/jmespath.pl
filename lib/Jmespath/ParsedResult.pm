@@ -28,7 +28,7 @@ sub _render_dot_file {
 
 # try to emulate __REPR__
 sub stringify {
-  shift->{parsed};
+  return shift->{parsed};
 }
 
 1;
