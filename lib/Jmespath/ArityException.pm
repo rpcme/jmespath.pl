@@ -24,3 +24,4 @@ sub _pluralize {
 }
 
 no Moose;
+1;
