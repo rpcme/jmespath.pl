@@ -13,13 +13,7 @@ use Encode;
 
 sub compile {
   my ( $class, $expression ) = @_;
-  print __PACKAGE__ . ' ' . __LINE__ . " compile $expression\n" if $Jmespath::VERBOSE;
-  try {
-    return Jmespath::Parser->new->parse( Encode::encode_utf8($expression) );
-  } catch {
-    say $_->stringify;
-    exit(1)
-  };
+  return Jmespath::Parser->new->parse( Encode::encode_utf8($expression) );
 }
 
 sub search {
