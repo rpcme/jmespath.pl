@@ -23,3 +23,4 @@ sub to_string {
 }
 
 no Moose;
+1;
