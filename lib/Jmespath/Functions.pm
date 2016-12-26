@@ -50,12 +50,12 @@ our @EXPORT = qw( jp_abs
 # Absolute value of provided value.  Throws exception if value is not
 # a signed integer.
 sub jp_abs {
-  my ( $arg ) = @_;
+  my @args = @_;
   Jmespath::ValueException
       ->new({ message => 'abs() requires one argument' })
       ->throw
-      if not defined $arg or scalar(@_) != 1;
-
+      if scalar @args < 1 or scalar @args > 1;
+  my $arg = shift @args;
   Jmespath::ValueException
       ->new({ message => 'contains() illegal boolean value' })
       ->throw
@@ -65,7 +65,7 @@ sub jp_abs {
       ->new({ message => 'Not a number: [' . $arg  . ']'})
       ->throw
       if not looks_like_number($arg);
-  return abs( $arg );
+  return abs($arg);
 }
 
 sub jp_avg {
@@ -105,7 +105,7 @@ sub jp_ceil {
   Jmespath::ValueException
       ->new({ message => 'ceil() requires one argument' })
       ->throw
-      if scalar @_ > 1;
+      if not defined $value;
   Jmespath::ValueException
       ->new({ message => 'ceil() requires one number' })
       ->throw
@@ -165,7 +165,7 @@ sub jp_floor {
   Jmespath::ValueException
       ->new({ message => 'floor() requires one argument' })
       ->throw
-      if scalar @_ > 1;
+      if not defined $value;
   Jmespath::ValueException
       ->new({ message => 'floor() requires one number' })
       ->throw
