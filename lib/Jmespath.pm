@@ -7,7 +7,6 @@ use JSON qw(encode_json decode_json);
 use Try::Tiny;
 use v5.14;
 our $VERSION = '0.01';
-our $VERBOSE = 0;
 use utf8;
 use Encode;
 
