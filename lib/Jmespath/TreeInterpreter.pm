@@ -6,7 +6,6 @@ use Try::Tiny;
 use List::Util qw(unpairs);
 use Scalar::Util qw(looks_like_number);
 use JSON;
-#no strict 'refs'; # Need this for sub dereferencing
 use Jmespath::Expression;
 use Jmespath::Functions;
 use Jmespath::AttributeException;
@@ -52,8 +51,14 @@ sub visit {
 
 sub default_visit {
   my ($self, $node, @args) = @_;
-  return Jmespath::NotImplementedException($node->{type});
+  Jmespath::NotImplementedException->new($node->{type})->throw;
 }
+
+=item visit_subexpression(node, value)
+
+Drills down into a subexpression in the AST graph.
+
+=cut
 
 sub visit_subexpression {
   my ($self, $node, $value) = @_;
@@ -64,6 +69,15 @@ sub visit_subexpression {
   return $result;
 }
 
+=item visit_field(node, value)
+
+Returns the value of a field in the JSON data.
+
+value : the JSON data
+node : the AST node being evaluated.
+
+=cut
+
 sub visit_field {
   my ($self, $node, $value) = @_;
   try {
@@ -71,7 +85,7 @@ sub visit_field {
   } catch {
     # when the field cannot be looked up, then the spec defines the
     # return value as undef.
-    return;
+    return undef;
   }
 }
 
@@ -387,3 +401,10 @@ sub _is_true {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Jmespath::TreeInterpreter
+

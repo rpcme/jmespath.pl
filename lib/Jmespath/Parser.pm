@@ -57,17 +57,14 @@ sub new {
   $self->{ tokens } = [ undef ] * $lookahead;
   $self->{ buffer_size } = $lookahead;
   $self->{ index } = 0;
-  trace("out Parser constructor");
   return $self;
 }
 
 sub parse {
   my ($self, $expression) = @_;
-  trace('parse start');
 
   my $cached = $self->{_CACHE}->{$expression};
   return $cached if defined $cached;
-  trace('_do_parse before call');
 
   my $parsed_result = $self->_do_parse($expression);
 
@@ -80,7 +77,6 @@ sub parse {
 
 sub _do_parse {
   my ( $self, $expression ) = @_;
-  trace('_do_parse start $expression');
   my $parsed;
   try {
     $parsed = $self->_parse($expression);
@@ -106,14 +102,11 @@ sub _do_parse {
 
 sub _parse {
   my ( $self, $expression ) = @_;
-  trace('_parse: start');
   $self->{_expression} = $expression;
   $self->{_index}      = 0;
   $self->{_tokens}     = Jmespath::Lexer->new->tokenize($expression);
-  trace('_parse: tokenization complete');
-  trace('_parse: tokens:', $self->{_tokens});
+
   my $parsed = $self->_expression(0); #binding_power = 0
-  trace('_parse: expression analysis complete');
   if ($self->_current_token_type ne 'eof') {
     my $t = $self->_lookahead_token(0);
     return Jmespath::ParseException->new(lex_position => $t->{start},
@@ -125,52 +118,36 @@ sub _parse {
   return Jmespath::ParsedResult->new($expression, $parsed);
 }
 
+
 sub _expression {
   my ( $self, $binding_power ) = @_;
-  trace("_expression start");
   $binding_power = defined $binding_power ? $binding_power : 0;
-  trace("_expression binding_power2 $binding_power");
-  try {
 
-    # Get the current token under evaluation
-    my $left_token = $self->_lookahead_token(0);
-    trace("_expression: left_token:", $left_token);
-    # Advance the token index
-    $self->_advance;
+  # Get the current token under evaluation
+  my $left_token = $self->_lookahead_token(0);
 
-    my $nud_function = \&{'_token_nud_' . $left_token->{type}};
-    if ( not exists &$nud_function ) { $self->_error_nud_token($left_token); }
-    trace("_expression: nud_function: $nud_function");
-    trace("_expression: left_token:", $left_token);
-    my $left_ast = &$nud_function($self, $left_token);
-    trace("_expression: left_ast:", $left_ast);
-    my $current_token = $self->_current_token_type;
-    trace("_expression: current_token_type: $current_token");
+  # Advance the token index
+  $self->_advance;
 
-    while ( $binding_power < $BINDING_POWER->{$current_token} ) {
-      trace("_expression: current_token: $current_token");
+  my $nud_function = \&{'_token_nud_' . $left_token->{type}};
+  if ( not defined &$nud_function ) { $self->_error_nud_token($left_token); }
 
-      my $led = \&{'_token_led_' . $current_token};
-      trace("_expression: led: $led");
-      #    my $res = &$led($self, $left);
-      if (not exists &$led) {
-        $self->_error_led_token($self->_lookahead_token(0));
-      }
-      else {
-        $self->_advance;
-        $left_ast = &$led($self, $left_ast);
-        trace("_expression: left now " . $left_ast->{type});
-        $current_token = $self->_current_token_type;
-        trace("_expression: _current_token_type : $current_token");
-        trace("_expression: current binding power: $binding_power, next: " .
-              $BINDING_POWER->{$current_token});
-      }
+  my $left_ast = &$nud_function($self, $left_token);
+  my $current_token = $self->_current_token_type;
+
+  while ( $binding_power < $BINDING_POWER->{$current_token} ) {
+    my $led = \&{'_token_led_' . $current_token};
+
+    if (not defined &$led) {
+      $self->_error_led_token($self->_lookahead_token(0));
     }
-    trace(" _expression: return:\n", $left_ast);
-    return $left_ast;
-  } catch {
-    $_->throw
-  };
+    else {
+      $self->_advance;
+      $left_ast = &$led($self, $left_ast);
+      $current_token = $self->_current_token_type;
+    }
+  }
+  return $left_ast;
 }
 
 sub _token_nud_literal {
@@ -185,18 +162,19 @@ sub _token_nud_unquoted_identifier {
 
 sub _token_nud_quoted_identifier {
   my ($self, $token) = @_;
-  trace('_token_nud_quoted_identifier start');
 
   my $field = Jmespath::Ast->field($token->{value});
+
   # You can't have a quoted identifier as a function name.
   if ( $self->_current_token_type eq 'lparen' ) {
     my $t = $self->_lookahead_token(0);
-    return Jmespath::ParseException->new( lex_position => 0,
-                                          token_value => $t->{value},
-                                          token_type => $t->{type},
-                                          message => 'Quoted identifier not allowed for function names.')->throw;
+    Jmespath::ParseException
+        ->new( lex_position => 0,
+               token_value => $t->{value},
+               token_type => $t->{type},
+               message => 'Quoted identifier not allowed for function names.')
+        ->throw;
   }
-  trace("_token_nud_quoted_identifier: field: $field");
   return $field;
 }
 
@@ -325,20 +303,16 @@ sub _token_nud_expref {
 
 sub _token_led_dot {
   my ($self, $left) = @_;
-  trace("_token_led_dot: start");
-  trace("_token_led_dot: _current_token_type: " . $self->_current_token_type );
+
   if ($self->_current_token_type ne 'star') {
-    trace("_token_led_dot: ne star");
 
     # Begin the evaluation of the subexpression.
     my $right = $self->_parse_dot_rhs( $BINDING_POWER->{ dot } );
 
-    trace("_token_led_dot: parsed right: $right");
     if ($left->{type} eq 'subexpression') {
       push  @{$left->{children}}, $right;
       return $left;
     }
-    trace('_token_led_dot: returning Ast->subexpression');
 
     # We have identified a subexpression, but the current AST is not a
     # subexpression.  Convert to a subexpression here.
@@ -374,10 +348,13 @@ sub _token_led_lparen {
     # -1 - '(' token
     # -2 - invalid function "name".
     my $prev_t = $self->_lookahead_token(-2);
-    return Jmespath::ParseException->new( lex_position => $prev_t->{start},
-                                          token_value => $prev_t->{value},
-                                          token_type => $prev_t->{type},
-                                          message => "Invalid function name '" . $prev_t->{value} ."'")->throw;
+    my $message = "Invalid function name '" . $prev_t->{value} ."'";
+    Jmespath::ParseException
+        ->new( lex_position => $prev_t->{start},
+               token_value => $prev_t->{value},
+               token_type => $prev_t->{type},
+               message => $message)
+        ->throw;
   }
   my $name = $left->{value};
   my $args = [];
@@ -419,7 +396,6 @@ sub _token_led_ne {
 
 sub _token_led_gt {
   my ($self, $left) = @_;
-  trace('_token_led_gt start');
   return $self->_parse_comparator($left, 'gt');
 }
 
@@ -526,27 +502,23 @@ sub _parse_multi_select_hash {
 
 sub _parse_projection_rhs {
   my ($self, $binding_power) = @_;
-  trace('_parse_projection_rhs: start');
   if ( $BINDING_POWER->{ $self->_current_token_type } < $PROJECTION_STOP) {
-    trace("_parse_projection_rhs: returning Ast->identity");
     return Jmespath::Ast->identity();
   }
   elsif ($self->_current_token_type eq 'lbracket') {
-    trace("_parse_projection_rhs: lbracket");
     return $self->_expression( $binding_power );
   }
   elsif ($self->_current_token_type eq 'filter') {
-    trace("_parse_projection_rhs: filter");
     return $self->_expression( $binding_power );
   }
   elsif ($self->_current_token_type eq 'dot') {
-    trace("_parse_projection_rhs: dot");
     $self->_match('dot');
     return $self->_parse_dot_rhs($binding_power);
   }
 
-  return $self->_raise_parse_error_for_token($self->_lookahead_token(0),
-                                             'syntax error');
+  $self->_raise_parse_error_for_token($self->_lookahead_token(0),
+                                      'syntax error');
+  return undef;
 }
 
 sub _parse_dot_rhs {
@@ -566,12 +538,9 @@ sub _parse_dot_rhs {
 
   # Common case "foo.bar", so first check for an identifier.
   if ( any { $_ eq $lookahead } qw(quoted_identifier unquoted_identifier star) ) {
-    trace("lookahead found: $lookahead");
-#    $self->_advance;
     return $self->_expression( $binding_power );
   }
   elsif ( $lookahead eq 'lbracket' ) {
-    trace('_parse_dot_rhs: _match lbracket');
     $self->_match('lbracket');
     return $self->_parse_multi_select_list;
   }
@@ -583,7 +552,6 @@ sub _parse_dot_rhs {
     my $t = $self->_lookahead_token(0);
     my @allowed = qw(quoted_identifier unquoted_identified lbracket lbrace);
     my $msg = 'Expecting: ' . join(' ', @allowed) . ', got: ' . $t->{ type };
-    trace($msg);
     $self->_raise_parse_error_for_token( $t, $msg )->throw;
   }
 }
@@ -625,9 +593,7 @@ sub _match_multiple_tokens {
 
 sub _advance {
   my ($self) = @_;
-  trace("_advance from index " . $self->{_index});
   $self->{ _index } += 1;
-  trace("_advance to   index " . $self->{_index});
 }
 
 sub _current_token_type {
@@ -646,18 +612,14 @@ sub _lookahead {
 
 sub _lookahead_token {
   my ($self, $number) = @_;
-  trace("_lookahead_token: start");
 
   my $lookahead = @{$self->{ _tokens }}[ $self->{_index} + $number ];
-
-  trace("_lookahead_token:", $lookahead);
 
   return $lookahead;
 }
 
 sub _raise_parse_error_for_token {
   my ($self, $token, $reason) = @_;
-  trace('_raise_parse_error_for_token: ' . $token);
   my $lex_position = $token->{ start };
   my $actual_value = $token->{ value };
   my $actual_type = $token->{ type };
@@ -670,23 +632,26 @@ sub _raise_parse_error_for_token {
 
 sub _raise_parse_error_maybe_eof {
   my ($self, $expected_type, $token) = @_;
-  trace('_raise_parse_error_maybe_eof: ' . $token);
   my $lex_position = $token->{ start };
   my $actual_value = $token->{ value };
   my $actual_type  = $token->{ type };
 
   if ( $actual_type eq 'eof' ) {
-    Jmespath::IncompleteExpressionException->new( lex_position => $lex_position,
-                                                  token_value => $actual_value,
-                                                  token_type => $actual_type )->throw;
+    Jmespath::IncompleteExpressionException
+        ->new( lex_position => $lex_position,
+               token_value => $actual_value,
+               token_type => $actual_type )
+        ->throw;
   }
 
   my $message = "Expecting: $expected_type, got: $actual_type";
 
-  Jmespath::ParseException->new( lex_position => $lex_position,
-                                 token_value => $actual_value,
-                                 token_type => $actual_type,
-                                 message => $message )->throw;
+  Jmespath::ParseException
+      ->new( lex_position => $lex_position,
+             token_value => $actual_value,
+             token_type => $actual_type,
+             message => $message )
+      ->throw;
 }
 
 sub _free_cache_entries {
@@ -699,21 +664,5 @@ sub purge {
   my ($self, $cls) = @_;
   $cls->_CACHE->clear();
 }
-
-sub trace {
-  my $message = shift;
-  my $obj = shift;
-  my ($package, $filename, $line) = caller;
-
-  if ( $Jmespath::VERBOSE == 1 ) {
-    print $package . ' ' . $line . ' ' . $message . "\n";
-    if (defined $obj) {
-      use Data::Dumper;
-      print Dumper $obj;
-    }
-  }
-  return;
-}
-
 
 1;
