@@ -16,3 +16,4 @@ override 'to_string', sub {
 };
 
 no Moose;
+1;
