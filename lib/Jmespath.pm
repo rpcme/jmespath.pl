@@ -30,7 +30,13 @@ sub search {
   if ( ( ref ($result) eq 'HASH'  ) or
        ( ref ($result) eq 'ARRAY' ) ) {
     try {
-      $result = JSON->new->utf8(1)->allow_nonref->space_after->encode( $result );
+      $result = JSON->new
+        ->utf8(1)
+        ->allow_nonref
+        ->space_after
+        ->allow_blessed(1)
+        ->convert_blessed(1)
+        ->encode( $result );
       return $result;
     } catch {
       Jmespath::ValueException->new( message => "cannot encode" )->throw;
