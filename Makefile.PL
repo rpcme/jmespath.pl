@@ -14,6 +14,7 @@ WriteMakefile(
                   'JSON'           => 0,
                   'String::Util'   => 0,
 		  'List::Util'     => "1.46",
+                  'Throwable'      => 0,
     },
     clean => {
         FILES => 'cover_db test-*',
