@@ -518,7 +518,7 @@ sub _parse_projection_rhs {
 
   $self->_raise_parse_error_for_token($self->_lookahead_token(0),
                                       'syntax error');
-  return undef;
+  return;
 }
 
 sub _parse_dot_rhs {
