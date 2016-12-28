@@ -10,8 +10,6 @@ use Jmespath::ValueException;
 use Jmespath::JMESPathTypeException;
 use Jmespath::String;
 use Scalar::Util qw(looks_like_number isdual blessed);
-use Sort::Naturally;
-#use Test::Deep::NoTest;
 use v5.12;
 
 our @EXPORT = qw( jp_abs
