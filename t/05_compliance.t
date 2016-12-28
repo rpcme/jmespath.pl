@@ -43,12 +43,6 @@ foreach my $file ( @files ) {
       my $comment = exists $case->{comment} ? $case->{ comment } : $case->{ expression };
       my $deeply = exists $case->{is_deeply} ? $case->{is_deeply} : 0;
       my $msg = $n . ' case ' . $cn . ' : ' . $comment;
-
-      if ( $file eq 'functions.json' and $cn == 94 ) {
-        print "WARNING: cannot discern between number and string, skipping\n" . $msg;
-        $cn++;
-        next;
-      }
       my $expr   = $case->{expression};
       my $expect = $case->{result};
       my $r;
