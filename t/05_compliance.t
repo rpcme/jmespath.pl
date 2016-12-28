@@ -5,7 +5,6 @@ use File::Basename;
 use File::Slurp qw(slurp);
 use Jmespath;
 use JSON;
-use String::Escape qw(unbackslash backslash);
 $ENV{JP_UNQUOTED} = 1;
 use Try::Tiny;
 use utf8;
