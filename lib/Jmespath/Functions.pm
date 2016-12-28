@@ -12,38 +12,40 @@ use Jmespath::String;
 use Scalar::Util qw(looks_like_number isdual blessed);
 use v5.12;
 
-our @EXPORT = qw( jp_abs
-                  jp_avg
-                  jp_contains
-                  jp_ceil
-                  jp_ends_with
-                  jp_eq
-                  jp_floor
-                  jp_gt
-                  jp_gte
-                  jp_join
-                  jp_keys
-                  jp_length
-                  jp_lt
-                  jp_lte
-                  jp_map
-                  jp_max
-                  jp_max_by
-                  jp_merge
-                  jp_min
-                  jp_min_by
-                  jp_ne
-                  jp_not_null
-                  jp_reverse
-                  jp_sort
-                  jp_sort_by
-                  jp_starts_with
-                  jp_sum
-                  jp_to_array
-                  jp_to_string
-                  jp_to_number
-                  jp_type
-                  jp_values );
+our @EXPORT_OK = qw( jp_abs
+                     jp_avg
+                     jp_contains
+                     jp_ceil
+                     jp_ends_with
+                     jp_eq
+                     jp_floor
+                     jp_gt
+                     jp_gte
+                     jp_join
+                     jp_keys
+                     jp_length
+                     jp_lt
+                     jp_lte
+                     jp_map
+                     jp_max
+                     jp_max_by
+                     jp_merge
+                     jp_min
+                     jp_min_by
+                     jp_ne
+                     jp_not_null
+                     jp_reverse
+                     jp_sort
+                     jp_sort_by
+                     jp_starts_with
+                     jp_sum
+                     jp_to_array
+                     jp_to_string
+                     jp_to_number
+                     jp_type
+                     jp_values );
+
+our %EXPORT_TAGS = ( all => [ @EXPORT_OK ] );
 
 # jp_abs
 #
@@ -114,12 +116,12 @@ sub jp_ceil {
 }
 
 sub jp_ends_with {
-  my ( $subject, $prefix ) = @_;
+  my ( $subject, $suffix ) = @_;
   Jmespath::ValueException
       ->new({ message => 'ends_with() allows strings only' })
       ->throw
-      if looks_like_number($prefix);
-  return JSON::true if $subject =~ /$prefix$/;
+      if looks_like_number($suffix);
+  return JSON::true if $subject =~ /$suffix$/;
   return JSON::false;
 }
 
@@ -679,6 +681,27 @@ Functions.pm : JMESPath Built-In Functions
 
 =head1 EXPORTED FUNCTIONS
 
+=head2 jp_abs(value)
+
+=head2 jp_avg(values)
+
+=head2 jp_contains(subject, search)
+
+=head2 jp_ceil(value)
+
+=head2 jp_ends_with(subject, suffix)
+
+=head2 jp_eq
+
+=head2 jp_floor(value)
+
+=head2 jp_gt(left, right)
+
+=head2 jp_gte(left, right)
+
+=head2 jp_lt(left, right)
+
+=head2 jp_lte(left, right)
 
 =head2 jp_map($expr, $elements)
 

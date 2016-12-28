@@ -7,7 +7,7 @@ use List::Util qw(unpairs);
 use Scalar::Util qw(looks_like_number);
 use JSON;
 use Jmespath::Expression;
-use Jmespath::Functions;
+use Jmespath::Functions qw(:all);
 use Jmespath::AttributeException;
 use Jmespath::IndexException;
 use Jmespath::UnknownFunctionException;
