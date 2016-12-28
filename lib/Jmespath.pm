@@ -15,6 +15,11 @@ sub compile {
   return Jmespath::Parser->new->parse( Encode::encode_utf8($expression) );
 }
 
+sub evaluate {
+  my ( $class, $expression, $data, $options ) = @_;
+  return Jmespath::Parser->new->parse( $expression )->search( $data, $options );
+}
+
 sub search {
   my ( $class, $expression, $data, $options ) = @_;
   my ($result);
