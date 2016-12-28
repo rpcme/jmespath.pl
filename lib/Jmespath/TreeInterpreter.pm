@@ -323,8 +323,8 @@ sub visit_multi_select_list {
   my $collected = [];
   foreach my $child ( @{$node->{children}}) {
     my $result = $self->visit($child, $value);
-    my $value = defined $result ? $self->visit($child, $value) : undef;
-    push @$collected, $value;
+    my $to_collect = defined $result ? $self->visit($child, $value) : undef;
+    push @$collected, $to_collect;
   }
   return $collected;
 }
