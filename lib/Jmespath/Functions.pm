@@ -8,6 +8,7 @@ use POSIX qw(ceil floor);
 use Jmespath::Expression;
 use Jmespath::ValueException;
 use Jmespath::JMESPathTypeException;
+use Jmespath::String;
 use Scalar::Util qw(looks_like_number isdual blessed);
 use Sort::Naturally;
 #use Test::Deep::NoTest;
@@ -76,7 +77,7 @@ sub jp_avg {
   
   foreach (@$values) {
     Jmespath::ValueException->new({ message => 'Not a number: ' . $_ })->throw
-        if $_ !~ /[0-9]/g;
+        if not looks_like_number($_);
   }
   return jp_sum($values) / scalar(@$values);
 }
@@ -223,13 +224,6 @@ sub jp_lte {
 
 sub jp_join {
   my ( $glue, $array ) = @_;
-#  use Data::Dumper;
-#  print "glue: $glue\n";
-#  print "array:\n";
-#  use Data::Dumper;
-#  print Dumper $array;
-#  $glue =~ s/\s+$//;
-#  $glue =~ s/^\s+//;
   Jmespath::ValueException
       ->new({ message => 'Not an array: ' . $array })
       ->throw
@@ -243,7 +237,7 @@ sub jp_join {
     Jmespath::ValueException
         ->new({message => "Cannot join " . jp_type($_) . " $_"})
         ->throw
-        if jp_type($_) ne 'string';
+        if jp_type($_) ne 'string' and ref $_ ne 'Jmespath::String';
   }
   return  join ( $glue, @$array );
 }
@@ -286,11 +280,7 @@ sub jp_map {
       ->new({ message => 'array[any] map(expression->any->any expr, array[any] elements) undefined elements' })
       ->throw
       if not defined $element;
-#    print Dumper $expr;
     my $res = $expr->visit($expr->{expression}, $element);
-    
-#    print Dumper $element;
-#    print Dumper $res;
     push @$result, $res;
   }
   return $result;
@@ -518,8 +508,6 @@ sub jp_sort_by {
   my $keyed = [];
   my $current_type;
   # create "symbol map" for items
-#  use Data::Dumper;
-#  print Dumper $expref;;
   Jmespath::ValueException
       ->new({message=>"sort_by(array elements, expression->number|expression->string expr) undefined expr not allowed"})
       ->throw
@@ -540,16 +528,6 @@ sub jp_sort_by {
     push @$keyed, [ $evaled, $idx ];
   }
   my @sorted = sort { $a->[0] cmp $b->[0] } @$keyed;
-  # my @sorted = map { $_->[0] }
-  #   sort { $a->[0] <=> $b->[0] || $a->[0] cmp $b->[0] } map { [$_, /=(\d+)/, CORE::fc($_)] } @$keyed;
-
-  
-  # foreach my $item (@$array) {
-  #   my $result = $expref->visit($expref->{expression}, $item)w;
-  #   $values->{ $result } = $item;
-  # }
-  # my @keyed_on = keys %$values;
-  # my $sorted = jp_sort( \@keyed_on );
   my $res = [];
   foreach my $item (@sorted) {
     push @$res, $values->{$item->[1]};
@@ -585,7 +563,6 @@ sub jp_to_array {
   return [$arg] if JSON::is_bool($arg);
   return [$arg] if ref $arg eq 'HASH';
   return $arg   if ref $arg eq 'ARRAY';
-#  return [$arg] if ref $arg eq '';
   return [$arg];
 }
 
@@ -594,7 +571,7 @@ sub jp_to_string {
   $arg = JSON->new->pretty(0)->allow_nonref->encode( $arg )
     if jp_type($arg) eq 'object'
     or jp_type($arg) eq 'array';
-  $arg = qq{$arg}
+  $arg = do { bless \( my $dummy = $arg), "Jmespath::String" }
     if jp_type($arg) eq 'number';
   return $arg;
 }
@@ -612,7 +589,10 @@ sub jp_type {
   my ($item) = @_;
   return 'null' if not defined $item;
   if (JSON::is_bool($item)) { return 'boolean'; }
-  if (looks_like_number($item)) { return 'number'; }
+  if (looks_like_number($item)) {
+    return 'string' if ref $item eq 'Jmespath::String';
+    return 'number';
+  }
   if (ref($item) eq 'ARRAY') { return 'array';}
   if (ref($item) eq 'HASH' ) {return 'object';}
   return 'string';
@@ -624,14 +604,10 @@ sub jp_values {
       ->new({message =>'array values(object $obj): illegal argument'})
       ->throw
       if ref $obj ne 'HASH';
-  #  use Data::Dumper;
- # print "in: jp_values\n";
- # print Dumper $ref;
   my $result = [];
   foreach my $item (keys %$obj) {
     push @$result, $obj->{$item};
   }
-#  print Dumper $result;
   return $result;
 }
 
