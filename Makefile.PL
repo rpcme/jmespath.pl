@@ -13,6 +13,7 @@ WriteMakefile(
                   'Moose'          => 0,
                   'JSON'           => 0,
                   'String::Util'   => 0,
+		  'List::Util'     => "1.46",
     },
     clean => {
         FILES => 'cover_db test-*',
