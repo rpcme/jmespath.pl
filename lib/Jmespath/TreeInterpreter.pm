@@ -85,7 +85,7 @@ sub visit_field {
   } catch {
     # when the field cannot be looked up, then the spec defines the
     # return value as undef.
-    return undef;
+    return;
   }
 }
 
