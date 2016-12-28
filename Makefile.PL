@@ -32,6 +32,7 @@ WriteMakefile(
     'File::Slurp'    => 0,
     'Moose'          => 0,
     'JSON'           => 0,
+    'Throwable'      => 0,
     'String::Util'   => 0,
     'List::Util'     => "1.46",
   },
