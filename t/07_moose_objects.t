@@ -46,3 +46,4 @@ cmp_ok(
   'method_result'
 );
 
+done_testing;
