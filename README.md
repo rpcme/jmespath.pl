@@ -4,7 +4,7 @@ jmespath.pl
 [![Coverage Status](https://coveralls.io/repos/rpcme/jmespath.pl/badge.svg)](https://coveralls.io/r/rpcme/jmespath.pl)
 [![CPAN version](https://badge.fury.io/pl/jmespath.pl.svg)](http://badge.fury.io/pl/jmespath.pl)
 
-Repository for the Jmespath for Perl implementation.
+Repository for the [Jmespath](http://jmespath.org) for Perl implementation.
 
 Changes in version 0.01
 -------------------------
