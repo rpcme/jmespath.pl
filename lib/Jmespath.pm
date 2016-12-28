@@ -6,7 +6,7 @@ use Jmespath::Visitor;
 use JSON qw(encode_json decode_json);
 use Try::Tiny;
 use v5.14;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 use utf8;
 use Encode;
 
