@@ -6,6 +6,12 @@ jmespath.pl
 
 Repository for the [Jmespath](http://jmespath.org) for Perl implementation.
 
+Changes in version 0.02
+-------------------------
+- Add 'Throwable' as a dependency
+- Many amendments made according to PBP
+
+
 Changes in version 0.01
 -------------------------
 - Initial implementation to cover all compliance tests
