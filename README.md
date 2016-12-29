@@ -6,12 +6,56 @@ jmespath.pl
 
 Repository for the [Jmespath](http://jmespath.org) for Perl implementation.
 
-Changes in version 0.02
--------------------------
-- Add 'Throwable' as a dependency
-- Many amendments made according to PBP
+See the [Changes](Changes) file for release notes.
 
+About
+------
 
-Changes in version 0.01
--------------------------
-- Initial implementation to cover all compliance tests
+[JMESPath](http://jmespath.org) is a query language for JSON.  This
+repository is the JMESPath implementation for
+the [Perl](http://perl.org) programming language.
+
+Installation
+--------------
+
+Although you can install from Github, certainly the better way is to
+install using CPAN.
+
+```bash
+$ cpan Jmespath
+```
+
+Usage
+------
+
+JMESPath releases with the command line utility ```jp```.
+
+```bash
+$ curl -s -XPOST https://fastapi.metacpan.org/v1/author/RICHE | \
+    perl -I lib/ script/jp email
+"["riche@cpan.org"]"
+```
+
+To remove the quotes, use the JP_UNQUOTED environment variable.
+
+```bash
+$ curl -s -XPOST https://fastapi.metacpan.org/v1/author/RICHE | \
+    JP_UNQUOTED=1 perl -I lib/ script/jp email
+["riche@cpan.org"]
+```
+
+Rather,
+
+```bash
+$ curl -s -XPOST https://fastapi.metacpan.org/v1/author/RICHE | \
+    JP_UNQUOTED=1 perl -I lib/ script/jp email[0]
+riche@cpan.org
+```
+
+With full JMESPath compliance, for example:
+
+```bash
+$  curl -s -XPOST https://fastapi.metacpan.org/v1/author/RICHE | \
+    JP_UNQUOTED=1 perl -I lib/ script/jp "email[0].length(@)"
+14
+```
