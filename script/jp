@@ -12,7 +12,7 @@ use v5.14;
 
 my $ast = 0;
 my $help = 0;
-my $file = '';
+my $file = undef;
 my $expression = '';
 my $opts = {};
 my $data = '';
@@ -26,12 +26,9 @@ GetOptions ( 'ast' => \$ast,
            ) or pod2usage(2);
 pod2usage(1) if scalar @ARGV == 0;
 pod2usage(1) if $help;
-$Jmespath::VERBOSE = 1 if $verbose;
 
 $expression = pop @ARGV;
 
-
-#exit(0);
 if ($ast) {
   try {
     my $result = Jmespath->compile($expression)->stringify;
@@ -47,6 +44,7 @@ if ($ast) {
 #$data = slurp ( $file );
 if ($file) { $data = slurp( $file ) } else { $data = slurp(\*STDIN); }
 $data =~ s/(?<!\r)\n/\r\n/g;
+$data = JSON->new->utf8(1)->allow_nonref->space_after->decode($data);
 
 try {
   say Jmespath->search($expression, $data);

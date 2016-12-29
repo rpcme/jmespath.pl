@@ -23,6 +23,7 @@ sub evaluate {
 sub search {
   my ( $class, $expression, $data, $options ) = @_;
   my ($result);
+
   try {
     $result = Jmespath::Parser->new->parse( $expression )
       ->search( $data, $options );
@@ -48,15 +49,15 @@ sub search {
     };
   }
 
-  if ( $result =~ /[0-9]+/ ) {
+  if ( $result =~ /^[-][0-9]+$/ ) {
     return $result;
   }
 
   # Unquoted string result
-  if ( $ENV{JP_UNQUOTED} == 0 or
-       not defined $ENV{JP_UNQUOTED} ) {
-    $result = q{"} . $result . q{"};
+  if ( not exists $ENV{JP_UNQUOTED} or $ENV{JP_UNQUOTED} == 0) {
+    return q{"} . $result . q{"};
   }
+
   return $result;
 }
 
