@@ -1,11 +1,18 @@
 language: perl
 perl:
   - "5.14"
+  - "5.16"
+  - "5.18"
   - "5.20"
   - "5.22"
   - "5.24"
 
 matrix:
+  allow_failures:
+    - perl: dev
+    - perl: 5.12
+    - perl: 5.10
+    - perl: 5.8
   include:
     - perl: 5.20
       env: COVERAGE=1
