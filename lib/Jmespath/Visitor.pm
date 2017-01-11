@@ -17,6 +17,10 @@ sub visit {
   return &$method;
 }
 
-sub default_visit { ... }
+sub default_visit {
+  my ($self, $node, @args) = @_;
+  Jmespath::NotImplementedException->new($node->{type})->throw;
+  return;
+}
 
 1;

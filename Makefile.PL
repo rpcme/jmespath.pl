@@ -1,32 +1,42 @@
+use 5.010001;
 use strict;
+use warnings;
+
 use ExtUtils::MakeMaker;
 
 WriteMakefile(
-    NAME          => 'Jmespath',
-    VERSION_FROM  => 'lib/Jmespath.pm',
-    ABSTRACT_FROM => 'lib/Jmespath.pm',
-    AUTHOR        => 'Richard Elberger',
-    INSTALLDIRS   => ($] < 5.011 ? 'perl' : 'site'),
-    PREREQ_PM => {
-                  'Try::Tiny'      => 0,
-                  'File::Slurp'    => 0,
-                  'Moose'          => 0,
-                  'JSON'           => 0,
-                  'String::Util'   => 0,
-		  'List::Util'     => "1.46",
-    },
-    clean => {
-        FILES => 'cover_db test-*',
-    },
-    (eval { ExtUtils::MakeMaker->VERSION(6.46) } ? ( META_MERGE => {
-      'meta-spec' => { version => 2 },
-      resources => {
-        repository  => {
-          url  => 'https://github.com/rpcme/jmespath.pl',
-          web  => 'https://github.com/rpcme/jmespath.pl',
-          type => 'git',
-        },
+  NAME          => 'Jmespath',
+  VERSION_FROM  => 'lib/Jmespath.pm',
+  ABSTRACT      => 'JMESPath is a query language for JSON.',
+  AUTHOR        => 'Richard Elberger <riche@cpan.org>',
+  LICENSE       => 'artistic_2',
+  INSTALLDIRS   => ($] < 5.011 ? 'perl' : 'site'),
+  META_MERGE    => {
+    dynamic_config   => 0,
+    'meta-spec'      => { version => 2 },
+    no_index         => { directory => [ 't' ], },
+    prereqs          => {runtime => {requires => {perl => '5.010001'}}},
+    resources        => {
+      bugtracker  => { web => 'https://github.com/rpcme/jmespath.pl/issues' },
+      homepage    => 'http://jmespath.org',
+      license     => [ 'http://www.opensource.org/licenses/artistic-license-2.0' ],
+      repository  => {
+        url  => 'https://github.com/rpcme/jmespath.pl.git',
+        web  => 'https://github.com/rpcme/jmespath.pl',
+        type => 'git',
       },
-      license => 'perl',
-    }) : () ),
+    },
+  },
+  PREREQ_PM => {
+    'Try::Tiny'      => 0,
+    'File::Slurp'    => 0,
+    'Moose'          => 0,
+    'JSON'           => 0,
+    'Throwable'      => 0,
+    'String::Util'   => 0,
+    'List::Util'     => "1.46",
+  },
+  EXE_FILES => [ 'script/jp' ],
+  clean     => { FILES => 'cover_db', },
+  test      => { TESTS => 't/*.t' },
 );

@@ -12,12 +12,14 @@ sub new {
 }
 
 sub visit {
-  my $self = shift; my $node = shift; my $args = @_;
+#  my $self = shift; my $node = shift; my $args = @_;
+  my ($self, $node, @args) = @_;
   push 'digraph AST {' ,@{$self->{_lines}};
   my $current = $node->{type} . $self->{_count};
   $self->{_count} += 1;
   $self->_visit($node, $current);
   push '}', @{$self->{_lines}};
+  return;
 }
 
 # recursive function to iterate through all child nodes to produce
@@ -32,6 +34,7 @@ sub _visit {
     push '  ' . $current . ' -> ' $child_name, @{$self->{_lines}};
     $self->_visit($child, $child_name);
   }
+  return;
 }
 
 1;

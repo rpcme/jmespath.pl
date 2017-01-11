@@ -4,3 +4,4 @@ extends 'Jmespath::JMESPathException';
 with 'Throwable';
 
 no Moose;
+1;
