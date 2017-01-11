@@ -1,3 +1,4 @@
+requires 'perl' => '5.014000';
 requires 'Try::Tiny';
 requires 'File::Slurp';
 requires 'Moose';
