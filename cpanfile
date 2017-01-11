@@ -4,7 +4,7 @@ requires 'File::Slurp';
 requires 'Moose';
 requires 'JSON';
 requires 'String::Util';
-requires 'List::Util';
+requires 'List::Util', '1.42';
 
 on develop => sub {
   requires 'Dist::Zilla::Plugin::Prereqs::FromCPANfile';
