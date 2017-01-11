@@ -8,7 +8,7 @@ use Scalar::Util qw(looks_like_number);
 use Ref::Util qw/is_blessed_ref is_plain_hashref/;
 use JSON;
 use Jmespath::Expression;
-use Jmespath::Functions;
+use Jmespath::Functions qw(:all);
 use Jmespath::AttributeException;
 use Jmespath::IndexException;
 use Jmespath::UnknownFunctionException;
@@ -42,17 +42,20 @@ sub new {
 sub visit {
   my ($self, $node, $args) = @_;
   my $node_type = $node->{type};
+  my $result;
   try {
     my $method = \&{'visit_' . $node->{type}};
-    return &$method( $self, $node, $args );
+    $result = &$method( $self, $node, $args );
   } catch {
     $_->throw;
-  }
+  };
+  return $result;
 }
 
 sub default_visit {
   my ($self, $node, @args) = @_;
   Jmespath::NotImplementedException->new($node->{type})->throw;
+  return;
 }
 
 =item visit_subexpression(node, value)
@@ -195,11 +198,13 @@ sub visit_identity {
 sub visit_index {
   my ($self, $node, $value) = @_;
   return if ref($value) ne 'ARRAY';
+  my $result;
   try {
-    return $value->[ $node->{value} ];
+    $result = $value->[ $node->{value} ];
   } catch {
     Jmespath::IndexException->new({ message => 'Invalid index' })->throw;
   };
+  return $result;
 }
 
 sub visit_index_expression {
@@ -326,8 +331,8 @@ sub visit_multi_select_list {
   my $collected = [];
   foreach my $child ( @{$node->{children}}) {
     my $result = $self->visit($child, $value);
-    my $value = defined $result ? $self->visit($child, $value) : undef;
-    push @$collected, $value;
+    my $to_collect = defined $result ? $self->visit($child, $value) : undef;
+    push @$collected, $to_collect;
   }
   return $collected;
 }

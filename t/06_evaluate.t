@@ -24,3 +24,5 @@ is_deeply(
   Jmespath->evaluate('a', { a => { nested => 'hash' } }),
   { nested => 'hash' }
 );
+
+done_testing;

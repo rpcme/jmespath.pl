@@ -460,6 +460,7 @@ sub _parse_comparator {
 sub _parse_multi_select_list {
   my ($self) = @_;
   my $expressions = [];
+  my $result;
   try {
     while (1) {
       my $expression = $self->_expression;
@@ -468,10 +469,11 @@ sub _parse_multi_select_list {
       $self->_match('comma');
     }
     $self->_match('rbracket');
-    return Jmespath::Ast->multi_select_list($expressions);
+    $result = Jmespath::Ast->multi_select_list($expressions);
   } catch {
     $_->throw;
-  }
+  };
+  return $result;
 }
 
 
@@ -518,7 +520,7 @@ sub _parse_projection_rhs {
 
   $self->_raise_parse_error_for_token($self->_lookahead_token(0),
                                       'syntax error');
-  return undef;
+  return;
 }
 
 sub _parse_dot_rhs {
@@ -548,13 +550,14 @@ sub _parse_dot_rhs {
     $self->_match('lbrace');
     return $self->_parse_multi_select_hash;
   }
-  else {
-    my $t = $self->_lookahead_token(0);
-    my @allowed = qw(quoted_identifier unquoted_identified lbracket lbrace);
-    my $msg = 'Expecting: ' . join(' ', @allowed) . ', got: ' . $t->{ type };
-    $self->_raise_parse_error_for_token( $t, $msg )->throw;
-  }
+
+  my $t = $self->_lookahead_token(0);
+  my @allowed = qw(quoted_identifier unquoted_identified lbracket lbrace);
+  my $msg = 'Expecting: ' . join(' ', @allowed) . ', got: ' . $t->{ type };
+  $self->_raise_parse_error_for_token( $t, $msg )->throw;
+  return;
 }
+
 sub _error_nud_token {
   my ($self, $token) = @_;
   if ( $token->{type} eq 'eof' ) {
@@ -563,11 +566,13 @@ sub _error_nud_token {
                                                   token_type => $token->{ type } )->throw;
   }
   $self->_raise_parse_error_for_token($token, 'invalid token');
+  return;
 }
 
 sub _error_led_token {
   my ($self, $token) = @_;
   $self->_raise_parse_error_for_token($token, 'invalid token');
+  return;
 }
 
 sub _match {
@@ -579,21 +584,25 @@ sub _match {
     $self->_raise_parse_error_maybe_eof( $token_type,
                                          $self->_lookahead_token(0) )->throw;
   }
+  return;
 }
 
 sub _match_multiple_tokens {
   my ( $self, $token_types ) = @_;
+
   if ( not any { $_ eq $self->_current_token_type } @$token_types ) {
     $self->_raise_parse_error_maybe_eof( $token_types,
                                          $self->_lookahead_token(0) );
   }
 
   $self->_advance();
+  return;
 }
 
 sub _advance {
   my ($self) = @_;
   $self->{ _index } += 1;
+  return;
 }
 
 sub _current_token_type {
@@ -628,6 +637,7 @@ sub _raise_parse_error_for_token {
                                  token_value => $actual_value,
                                  token_type => $actual_type,
                                  message => $reason )->throw;
+  return;
 }
 
 sub _raise_parse_error_maybe_eof {
@@ -652,17 +662,20 @@ sub _raise_parse_error_maybe_eof {
              token_type => $actual_type,
              message => $message )
       ->throw;
+  return;
 }
 
 sub _free_cache_entries {
   my ($self) = @_;
   my $key = $self->{_CACHE}{(keys %{$self->{_CACHE}})[rand keys %{$self->{_CACHE}}]};
   delete $self->{ _CACHE }->{ $key };
+  return;
 }
 
 sub purge {
   my ($self, $cls) = @_;
   $cls->_CACHE->clear();
+  return;
 }
 
 1;

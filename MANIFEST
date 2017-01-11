@@ -26,7 +26,7 @@ Makefile.PL
 MANIFEST
 MANIFEST.SKIP
 README.md
-script/jp.pl
+script/jp
 t/02_lexer.t
 t/03_parser.t
 t/05_compliance.t
