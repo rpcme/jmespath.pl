@@ -9,7 +9,7 @@ use Jmespath::Expression;
 use Jmespath::ValueException;
 use Jmespath::JMESPathTypeException;
 use Jmespath::String;
-use Scalar::Util qw(looks_like_number isdual blessed);
+use Scalar::Util qw(looks_like_number);
 use v5.12;
 
 our @EXPORT_OK = qw( jp_abs
