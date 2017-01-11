@@ -2,7 +2,6 @@ package Jmespath;
 use strict;
 use warnings;
 use Jmespath::Parser;
-use Jmespath::Visitor;
 use JSON qw(encode_json decode_json);
 use Try::Tiny;
 use v5.14;
