@@ -34,6 +34,7 @@ WriteMakefile(
     'JSON'           => 0,
     'Throwable'      => 0,
     'String::Util'   => 0,
+    'Ref::Util'      => 0,
     'List::Util'     => "1.46",
   },
   EXE_FILES => [ 'script/jp' ],

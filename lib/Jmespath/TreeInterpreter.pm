@@ -5,6 +5,7 @@ use warnings;
 use Try::Tiny;
 use List::Util qw(unpairs);
 use Scalar::Util qw(looks_like_number);
+use Ref::Util qw/is_blessed_ref is_plain_hashref/;
 use JSON;
 use Jmespath::Expression;
 use Jmespath::Functions qw(:all);
@@ -83,15 +84,22 @@ node : the AST node being evaluated.
 
 sub visit_field {
   my ($self, $node, $value) = @_;
-  my $result;
-  try {
-    $result = $value->{$node->{value}};
-  } catch {
-    # when the field cannot be looked up, then the spec defines the
-    # return value as undef.
-    return;
-  };
-  return $result;
+
+  if (not defined $value) {
+    # Sometimes the value to visit something on is
+    # undefined. Since we can't visit anything on undefined,
+    # we return undef (as per spec) 
+    return undef;
+  } elsif (is_blessed_ref($value)){
+    my $method = $node->{ value };
+    return $value->$method;
+  } elsif (is_plain_hashref($value)) {
+    return $value->{ $node->{value} };
+  } else {
+    # When we don't know how to visit something (cause
+    # we don't have a hash, we return undef (as per spec)
+    return undef;
+  }
 }
 
 sub visit_comparator {
